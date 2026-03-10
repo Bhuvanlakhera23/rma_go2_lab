@@ -1,0 +1,6 @@
+Metadata-Version: 2.4
+Name: rma_go2_lab
+Version: 0.1.0
+Summary: RMA implementation for Unitree Go2 using IsaacLab
+Author: Bhuvan Lakhera
+Requires-Python: >=3.10
