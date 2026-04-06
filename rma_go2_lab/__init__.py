@@ -1,14 +1,20 @@
 import gymnasium as gym
 
+from rma_go2_lab.models.ppo_with_flat_expert import PPOWithFlatExpert
+import rsl_rl.runners.on_policy_runner as _rsl_on_policy_runner
+
+_rsl_on_policy_runner.PPOWithFlatExpert = PPOWithFlatExpert
+
 #Teacher Flat
 gym.register(
-    id="RMA-Go2-Teacher",
+    id="RMA-Go2-Flat",
     entry_point="isaaclab.envs:ManagerBasedRLEnv",
     kwargs={
         "env_cfg_entry_point":
-            "rma_go2_lab.envs.teacher_cfg_flat:Go2RMATeacherEnvCfg",
+            "rma_go2_lab.envs.flat_expert_cfg:Go2RMATeacherEnvCfg",
+
         "rsl_rl_cfg_entry_point":
-            "isaaclab_tasks.manager_based.locomotion.velocity.config.go2.agents.rsl_rl_ppo_cfg:UnitreeGo2RoughPPORunnerCfg",
+            "rma_go2_lab.models.flat_ppo_cfg:Go2RMAFlatPPORunnerCfg",
     },
 )
 
@@ -36,15 +42,14 @@ gym.register(
     },
 )
 
-#Teacher Rough Adaptive
+# Student / Adaptation Phase (Stage F)
 gym.register(
-    id="RMA-Go2-Teacher-Rough-Adaptive",
+    id="RMA-Go2-Student-Rough-NA",
     entry_point="isaaclab.envs:ManagerBasedRLEnv",
     kwargs={
         "env_cfg_entry_point":
-            "rma_go2_lab.envs.adaptive_teacher_cfg_rough:Go2RMATeacherRoughEnvCfg",
+            "rma_go2_lab.envs.student_cfg_rough_na:Go2RMAStudentRoughEnvCfg",
         "rsl_rl_cfg_entry_point":
-            "rma_go2_lab.envs.adaptive_teacher_cfg_rough:Go2RMATeacherPPORunnerCfg",
+            "rma_go2_lab.models.student_ppo_cfg_na:Go2RMAStudentPPORunnerCfg",
     },
 )
-

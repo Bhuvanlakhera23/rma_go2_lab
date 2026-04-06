@@ -13,3 +13,19 @@ venv/
 
 .ipynb_checkpoints/
 .DS_Store
+
+# Generated experiment outputs
+outputs/
+artifacts/manifests/*.yaml
+artifacts/manifests/*.md
+
+# Training artifacts
+rma_go2_lab/policies/**/events.out.tfevents.*
+rma_go2_lab/policies/**/exported/
+rma_go2_lab/policies/**/git/*.diff
+
+# Large Local Dependencies
+reference_repos/
+rma_go2_lab/tools/
+*.pt.tmp
+*.log
