@@ -21,8 +21,42 @@ For every serious run, keep:
 - one manifest from `scripts/export_teacher_manifest.py`
 - one checkpoint evaluation report from `scripts/eval_teacher.py`
 
-Do not copy large checkpoint binaries into this repo.
-Keep the source of truth for checkpoints in the IsaacLab log directories and record the selected paths in manifests or reports.
+Large checkpoint binaries should normally stay in the IsaacLab log directories. The small set of explicitly frozen policy artifacts under `rma_go2_lab/policies/` are exceptions used as stable project milestones; record their lineage and hashes in manifests.
+
+
+## Current Final Lineage
+
+The current final teacher in this repo was produced by a staged warm-start process, not by a single monolithic training run:
+
+1. Stage A flat backbone: `/home/bhuvan/tools/IsaacLab/logs/rsl_rl/go2_rma_flat/2026-04-02_12-26-57/model_1499.pt`
+2. Stage B general rough teacher: `/home/bhuvan/tools/IsaacLab/logs/rsl_rl/go2_rma_teacher_na/2026-04-02_18-41-09/model_1999.pt`
+3. Stage D stair/pyramid refinement: `/home/bhuvan/tools/IsaacLab/logs/rsl_rl/go2_rma_teacher_na/2026-04-06_11-18-41/model_240.pt`
+4. Frozen golden teacher artifact: `rma_go2_lab/policies/rough_teacher_v2_refined_240.pt`
+
+This lineage matters. If reproducing the result, first train/select the flat backbone, then train the general rough RMA teacher from that backbone, then refine the teacher on the stair/pyramid-heavy curriculum. Skipping the Stage B warm start changes the experiment.
+
+## Current Mental Model
+
+This repository is an RMA-inspired Go2 locomotion pipeline, not a direct one-file reproduction of the original paper. The implemented structure is:
+
+1. Flat deployable backbone
+What it is: a proprioceptive policy trained on flat ground.
+Why it matters: it acts as the clean gait prior, analogous in role to the prior/base policy used in staged RMA-style reference implementations.
+
+2. Privileged rough teacher
+What it is: a non-deployable teacher that receives proprioception plus a learned latent `z`.
+Hidden context: the latent is produced from privileged simulation-only observations: dynamics parameters and a terrain height profile.
+Critic structure: the critic is asymmetric and sees policy plus privileged observations.
+
+3. Stair/pyramid refinement
+What it is: a refinement stage starting from the general rough teacher.
+Why it matters: it biases terrain exposure toward stairs and boxes to improve obstacle behavior.
+
+4. Student/adaptation phase
+What it is: the next phase.
+Goal: the student should learn deployable adaptation from history/proprioception rather than privileged terrain/dynamics.
+
+The current teacher is promising enough to move into Phase 2 / student work, but it is not perfect. The latest complete fixed-level stress suite shows strong behavior on level-9 random rough, stair descent, and several dynamics extremes, while level-9 stair ascent and boxes remain known weak spots. Document this honestly: it is the current best teacher artifact for distillation experiments, not a fully solved max-difficulty stair-ascent policy.
 
 ## Stage Definitions
 
@@ -318,12 +352,14 @@ Suggested naming:
 
 ## Current Project Status
 
-As of now:
+As of the final teacher handoff:
 
-- Stage A is complete with the current flat checkpoint
-- Stage B is the active teacher stage
-- Stage D is not yet implemented as an explicit obstacle curriculum
-- student training should wait until a Stage B or later teacher is explicitly qualified
+- Stage A is complete with the selected flat backbone checkpoint.
+- Stage B is complete with the selected general rough RMA teacher checkpoint.
+- Stage D refinement is complete enough to freeze `rough_teacher_v2_refined_240.pt` as the current teacher artifact for Phase 2, but not enough to claim fully solved level-9 obstacle mastery.
+- The complete teacher stress suite has been run and recorded under `artifacts/evaluations/`.
+- Known teacher weaknesses remain: level-9 stair ascent and boxes.
+- Phase 2 should proceed to student/adaptation using this teacher, while keeping the known failure modes visible in evaluation.
 
 ## Push / Commit Rule
 

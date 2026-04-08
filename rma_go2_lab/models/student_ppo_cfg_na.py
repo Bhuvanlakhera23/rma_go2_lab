@@ -9,8 +9,19 @@ from isaaclab_rl.rsl_rl import (
 )
 
 @configclass
+class RMAPolicyCfg(RslRlPpoActorCriticCfg):
+    pretrained_path: str = None
+    num_actor_obs: int = None
+    num_critic_obs: int = None
+
+@configclass
+class RMAAlgorithmCfg(RslRlPpoAlgorithmCfg):
+    adaptation_loss_coef: float = 10.0
+
+@configclass
 class Go2RMAStudentPPORunnerCfg(RslRlOnPolicyRunnerCfg):
 
+    num_envs = 4096 # Training scale
     num_steps_per_env = 32
     max_iterations = 1000 # Student usually converges faster than teacher
     save_interval = 50
@@ -18,11 +29,11 @@ class Go2RMAStudentPPORunnerCfg(RslRlOnPolicyRunnerCfg):
     experiment_name = "go2_rma_student_na"
 
     obs_groups = {
-        "policy": ["policy", "history"],
-        "critic": ["policy", "privileged"], # Critic still sees privileged info during training
+        "policy": ["policy"],
+        "critic": ["policy", "privileged"], # Critic still sees history + privileged info
     }
 
-    policy = dict(
+    policy = RMAPolicyCfg(
         class_name="RMAStudentActorCritic",
         init_noise_std=0.2, # Start with low noise as we bootstrap from a qualified expert
         actor_hidden_dims=[512, 256, 128],
@@ -32,7 +43,7 @@ class Go2RMAStudentPPORunnerCfg(RslRlOnPolicyRunnerCfg):
         pretrained_path="/home/bhuvan/projects/rma/rma_go2_lab/rma_go2_lab/policies/rough_teacher_v2_refined_240.pt",
     )
 
-    algorithm = dict(
+    algorithm = RMAAlgorithmCfg(
         class_name="PPOWithRMAAdaptation",
         value_loss_coef=1.0,
         use_clipped_value_loss=True,

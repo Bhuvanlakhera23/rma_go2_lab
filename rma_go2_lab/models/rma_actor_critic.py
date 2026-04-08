@@ -12,10 +12,10 @@ class RMALatentEncoder(nn.Module):
         Assume last 187 dims are terrain (Unitree default), first (N-187) are dynamics.
         """
         super().__init__()
-        
+
         self.terrain_dim = 187
         self.dynamics_dim = input_dim - self.terrain_dim
-        
+
         # Branch 1: Terrain context (Geometry)
         self.terrain_branch = nn.Sequential(
             nn.Linear(self.terrain_dim, 128),
@@ -23,7 +23,7 @@ class RMALatentEncoder(nn.Module):
             nn.Linear(128, 64),
             nn.ELU(),
         )
-        
+
         # Branch 2: Dynamics context (Physics)
         self.dynamics_branch = nn.Sequential(
             nn.Linear(self.dynamics_dim, 64),
@@ -31,7 +31,7 @@ class RMALatentEncoder(nn.Module):
             nn.Linear(64, 32),
             nn.ELU(),
         )
-        
+
         # Final Bottleneck Head
         self.head = nn.Sequential(
             nn.Linear(64 + 32, 64),
@@ -50,10 +50,10 @@ class RMALatentEncoder(nn.Module):
         # x: [Batch, TotalPrivileged]
         t_obs = x[:, -self.terrain_dim:]  # Last 187 points are height scans
         d_obs = x[:, :-self.terrain_dim]  # Rest are dynamics (friction, mass, etc.)
-        
+
         t_lat = self.terrain_branch(t_obs)
         d_lat = self.dynamics_branch(d_obs)
-        
+
         combined = torch.cat([t_lat, d_lat], dim=-1)
         return self.head(combined)
 
@@ -65,10 +65,10 @@ class RMAAdaptationModule(nn.Module):
         Architecture follows the RMA paper (1D Conv layers).
         """
         super().__init__()
-        
+
         self.history_len = history_len
         self.proprio_dim = proprio_dim
-        
+
         self.cnn = nn.Sequential(
             nn.Conv1d(proprio_dim, 32, kernel_size=5, stride=2),
             nn.ELU(),
@@ -107,19 +107,29 @@ class RMAAdaptationModule(nn.Module):
 
 class RMAActorCritic(ActorCritic):
     def __init__(self, obs, obs_groups, num_actions, **kwargs):
-        # Filter out rma-specific kwargs before passing to super().__init__ 
+        # Filter out rma-specific kwargs before passing to super().__init__
         # to avoid "unexpected arguments" warnings from rsl_rl
         rsl_rl_kwargs = {k: v for k, v in kwargs.items() if k not in ["num_actor_obs", "num_critic_obs", "pretrained_path"]}
         super().__init__(obs, obs_groups, num_actions, **rsl_rl_kwargs)
-        
+
         # Save device reference from observations
         self.device = obs["policy"].device
-        
-        # --- QUALIFICATION MODE ---
-        # "normal": compute z from privileged info
+
+        # --- QUALIFICATION / REPRODUCTION MODE ---
+        # "normal": compute z from privileged info (Matches Stage B/D training)
         # "zero":   force z to 0.0 (baseline check)
         # "shuffled": randomize z across batch (causality check)
-        self.latent_mode = "normal" 
+        self.latent_mode = "normal"
+        # --- TEACHER LATENT ENCODER (Privileged -> Latent) ---
+        self.proprio_dim = 48
+        self.latent_dim = 8
+        self.privileged_dim = 204
+
+        self.encoder = RMALatentEncoder(input_dim=self.privileged_dim, latent_dim=self.latent_dim).to(self.device)
+
+        # 🔴 FORCE ACTOR INPUT to (48 + 8) = 56 for checkpoint compatibility
+        # RSL-RL usually builds the MLP based on this value
+        self.num_actor_obs = self.proprio_dim + self.latent_dim
 
         # 🔴 RECONSTRUCT OFFSET TABLE for flat tensor support
         self.obs_offsets = {}
@@ -131,19 +141,74 @@ class RMAActorCritic(ActorCritic):
             self.obs_dims[group] = dim
             curr_offset += dim
 
+        # Override the actor MLP if it was created with wrong size (48)
+        # We need 56 for Stage B/D checkpoints
+        if hasattr(self, "actor") and self.actor[0].in_features != self.num_actor_obs:
+            print(f"  [RMA] Rebuilding Actor MLP (48 -> {self.num_actor_obs})")
+            from rsl_rl.networks.mlp import MLP
+            self.actor = MLP(
+                input_dim=self.num_actor_obs,
+                output_dim=num_actions,
+                hidden_dims=kwargs.get("actor_hidden_dims", [512, 256, 128]),
+                activation=kwargs.get("activation", "elu"),
+            ).to(self.device)
+
         # 🔴 BOOTSTRAP: Load pre-trained weights if provided
         pretrained_path = kwargs.get("pretrained_path", None)
         if pretrained_path:
             self.load_pretrained_weights(pretrained_path)
-    
+
     def _get_group_obs(self, obs, group_name):
-        """Helper to get a group obs from either a dict or a flat tensor."""
-        if isinstance(obs, dict):
-            return torch.cat([obs[g] for g in self.obs_groups[group_name]], dim=-1)
-        # Slicing for flat tensors (RSL-RL rollout storage)
-        start = self.obs_offsets[group_name]
-        end = start + self.obs_dims[group_name]
-        return obs[:, start:end]
+        """Helper to get a group obs from either a dict, TensorDict, or a flat tensor."""
+        # 1. If it's a dict/TensorDict, extract the requested group
+        if hasattr(obs, "keys"): # Catches both dict and TensorDict
+             # In play.py, obs might be JUST the 'policy' group tensor
+             # Try to get the key directly first
+             if group_name in obs:
+                 v = obs[group_name]
+                 # 🔴 FIX: If it's a TensorDict, convert to raw Tensor for feature-dim slicing
+                 if torch.is_tensor(v):
+                     return v
+                 # Handle TensorDict or nested dict: collect all leaves and cat them
+                 if hasattr(v, "values"):
+                     return torch.cat([val for val in v.values() if torch.is_tensor(val)], dim=-1)
+                 try:
+                    return torch.as_tensor(v) # Last ditch attempt
+                 except:
+                    return v # Fallback
+
+             # Otherwise, reconstruct from subgroups if all keys exist
+             subgroups = self.obs_groups.get(group_name, [])
+             if all(k in obs for k in subgroups):
+                 parts = []
+                 for k in subgroups:
+                     if k == group_name: continue
+                     part = obs[k]
+                     # 🔴 FIX: Ensure part is a raw tensor
+                     if not torch.is_tensor(part):
+                         if hasattr(part, "values"):
+                             part = torch.cat([val for val in part.values() if torch.is_tensor(val)], dim=-1)
+                         else:
+                             try: part = torch.as_tensor(part)
+                             except: pass
+                     parts.append(part)
+                 if parts:
+                    return torch.cat(parts, dim=-1)
+
+        # 2. If it's a flat tensor, slice it using pre-calculated offsets
+        if torch.is_tensor(obs):
+            # If the tensor size matches the requested group exactly, it's already sliced
+            if obs.shape[-1] == self.obs_dims.get(group_name, -1):
+                return obs
+
+            # Otherwise, slice from a full-state tensor
+            start = self.obs_offsets.get(group_name, 0)
+            end = start + self.obs_dims.get(group_name, 0)
+            if end <= obs.shape[-1]:
+                return obs[:, start:end]
+
+        # Fallback: hope it's what we need
+        return obs
 
     def get_actor_obs(self, obs_dict):
         # Extract base policy observation
@@ -152,25 +217,29 @@ class RMAActorCritic(ActorCritic):
         # Compute z dynamically inside the policy forward graph
         privileged_obs = self._get_group_obs(obs_dict, "critic")
         # In our asymmetric setup, critic = policy + privileged_info
-        # We only want the privileged_info part (last 204 dims)
-        privileged_info = privileged_obs[:, -204:] 
+        # We only want the privileged_info part (last 204 dims).
+        # 🔴 FIX: Robust slicing to handle both [Batch, Dim] and [Dim] shapes.
+        if privileged_obs.dim() == 1:
+             privileged_info = privileged_obs[-204:]
+        else:
+             privileged_info = privileged_obs[:, -204:]
 
         # Robustness: Clean up NaNs/Infs in privileged observations
         if torch.isnan(privileged_info).any() or torch.isinf(privileged_info).any():
             privileged_info = torch.nan_to_num(privileged_info, nan=0.0, posinf=0.0, neginf=0.0)
-            
+
         # Add a tiny bit of noise if needed
         # if self.training:
         #     privileged_obs = privileged_obs + torch.randn_like(privileged_obs) * 0.05
 
         # The encoder only sees hidden privileged context, never duplicated proprioception.
-        z = self.encoder(privileged_obs)
+        z = self.encoder(privileged_info)
 
         # --- LATENT INSTRUMENTATION ---
         if not hasattr(self, '_fwd_step'):
             self._fwd_step = 0
         self._fwd_step += 1
-        
+
         # Print stats roughly every 100 env steps (few times per PPO iteration)
         if self._fwd_step % 100 == 0:
             z_norm = torch.norm(z, dim=-1).mean().item()
@@ -187,11 +256,11 @@ class RMAActorCritic(ActorCritic):
 
         # Actor receives proprio + latent
         full_obs = torch.cat([base_obs, z], dim=-1)
-        
+
         # Final safety check before passing to Actor
         if torch.isnan(full_obs).any():
             full_obs = torch.nan_to_num(full_obs, nan=0.0)
-            
+
         return full_obs
 
 
@@ -255,34 +324,67 @@ class RMAStudentActorCritic(RMAActorCritic):
 
         # History is now inside the 'policy' group: [Batch, ProprioDim + HistoryLen * ProprioDim]
         self.proprio_dim = 48
-        # We know the policy group contains [policy_obs, history_obs]
-        # So total_policy_dim = proprio_dim + (history_len * proprio_dim)
-        # history_len = (total - proprio) // proprio
         policy_group_dim = self.obs_dims["policy"]
         self.history_len = (policy_group_dim - self.proprio_dim) // self.proprio_dim
-        
+
         latent_dim = 8
+
+        # 🔴 CRITICAL: FORCE ACTOR DIMS to [Proprio + Latent]
+        # We override the base class calculation so the MLP is built with 56 inputs
+        self.num_actor_obs = self.proprio_dim + latent_dim
         self.adaptation_module = RMAAdaptationModule(
-            history_len=self.history_len, 
-            proprio_dim=self.proprio_dim, 
+            history_len=self.history_len,
+            proprio_dim=self.proprio_dim,
             latent_dim=latent_dim
-        )
-        
+        ).to(self.device)
+
         # The teacher's actor/critic and encoder are maintained for distillation
         self.teacher_encoder = self.encoder # Reuse base teacher encoder for supervised loss
         for param in self.teacher_encoder.parameters():
             param.requires_grad = False # Freeze teacher encoder
-            
+
+        self.is_auditing = False # 🟢 TOGGLE THIS TO FALSE FOR 'TURBO' SPEED
+
     def get_actor_obs(self, obs_dict):
         # 1. Base proprioception (The first 48 dims of the policy group)
         policy_obs = self._get_group_obs(obs_dict, "policy")
+
+        # 🔴 ROBUSTNESS: If the 'policy' group is only 48-dim, but 'history' is available separately,
+        # manually join them to ensure the adaptation module receives data.
+        if policy_obs.shape[-1] == self.proprio_dim:
+             if isinstance(obs_dict, dict) and "history" in obs_dict:
+                  history_part = self._get_group_obs(obs_dict, "history")
+                  policy_obs = torch.cat([policy_obs, history_part], dim=-1)
+
         base_obs = policy_obs[:, :self.proprio_dim]
 
         # 2. Adaptation: Predict z from history (The rest of the policy group)
         history_flat = policy_obs[:, self.proprio_dim:]
-        history = history_flat.view(-1, self.history_len, self.proprio_dim)
-        z_predicted = self.adaptation_module(history)
-        
+
+        # 🔴 ONE-SHOT BOOT DIAGNOSTIC
+        if not hasattr(self, '_boot_diag_done'):
+            self._boot_diag_done = True
+            print(f"  [BOOT] policy_obs.shape={policy_obs.shape} | history_flat.shape={history_flat.shape} | history_len={self.history_len}")
+
+        # If history_flat is unexpectedly empty, return zero latent to avoid cat() batch mismatch (1 vs 0)
+        if history_flat.numel() == 0:
+             z_predicted = torch.zeros((policy_obs.shape[0], 8), device=self.device)
+        else:
+             history = history_flat.view(-1, self.history_len, self.proprio_dim)
+             z_predicted = self.adaptation_module(history)
+
+             # --- VIGOROUS AUDIT ---
+             if self.is_auditing:
+                  if not hasattr(self, '_audit_step'): self._audit_step = 0
+                  self._audit_step += 1
+                  if self._audit_step % 1000 == 0:
+                       p_min, p_max = base_obs.min().item(), base_obs.max().item()
+                       h_min, h_max = history_flat.min().item(), history_flat.max().item()
+                       h_mean = history_flat.abs().mean().item()
+                       z_mean = z_predicted.mean().item()
+                       print(f"  [Audit] Proprio [{p_min:.2f}, {p_max:.2f}] | History Mag: {h_mean:.4f} | Z_mean: {z_mean:.3f}")
+                       print(f"  [Audit] Env0 v_xy: ({base_obs[0,0]:.2f}, {base_obs[0,1]:.2f}) m/s")
+
         # 3. Cache prediction for distillation loss (used by PPO)
         self.last_predicted_z = z_predicted
 

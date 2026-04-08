@@ -1,0 +1,396 @@
+generated_at: '2026-04-01T16:58:39'
+task: RMA-Go2-Teacher-Rough-NA
+seed: 42
+num_envs_for_introspection: 1
+observations:
+  policy:
+    shape:
+    - 1
+    - 48
+    terms:
+    - name: base_lin_vel
+      func: base_lin_vel
+      params: {}
+    - name: base_ang_vel
+      func: base_ang_vel
+      params: {}
+    - name: projected_gravity
+      func: projected_gravity
+      params: {}
+    - name: velocity_commands
+      func: generated_commands
+      params:
+        command_name: base_velocity
+    - name: joint_pos
+      func: joint_pos_rel
+      params: {}
+    - name: joint_vel
+      func: joint_vel_rel
+      params: {}
+    - name: actions
+      func: last_action
+      params: {}
+  privileged:
+    shape:
+    - 1
+    - 204
+    terms:
+    - name: dynamics
+      func: get_dynamics
+      params: {}
+    - name: height_scan
+      func: warp_height_scan
+      params:
+        grid_size:
+        - 17
+        - 11
+        grid_res: 0.1
+commands:
+  resampling_time_range_s:
+  - 10.0
+  - 10.0
+  heading_command: false
+  heading_control_stiffness: 0.5
+  rel_standing_envs: 0.02
+  rel_heading_envs: 0.0
+  lin_vel_x:
+  - 0.0
+  - 1.0
+  lin_vel_y:
+  - 0.0
+  - 0.0
+  ang_vel_z:
+  - 0.0
+  - 0.0
+  heading:
+  - 0.0
+  - 0.0
+actions:
+  type: JointPositionActionCfg
+  scale: 0.25
+  use_default_offset: true
+  joint_names:
+  - .*
+policy_model:
+  class_name: RMAActorCritic
+  actor_input_dim: 56
+  critic_input_dim: 252
+  actor_hidden_dims:
+  - 512
+  - 256
+  - 128
+  critic_hidden_dims:
+  - 512
+  - 256
+  - 128
+  latent_dim: 8
+  action_dim: 12
+  pretrained_path: /home/bhuvan/tools/IsaacLab/logs/rsl_rl/go2_rma_flat/2026-03-30_13-48-02/model_1499.pt
+robot_defaults:
+  spawn_usd: /home/bhuvan/assets/go2/go2.usd
+  base_init_pos:
+  - 0.0
+  - 0.0
+  - 0.4
+  joint_pos_defaults:
+    .*L_hip_joint: 0.1
+    .*R_hip_joint: -0.1
+    F[L,R]_thigh_joint: 0.8
+    R[L,R]_thigh_joint: 1.0
+    .*_calf_joint: -1.5
+  joint_vel_defaults:
+    .*: 0.0
+  soft_joint_pos_limit_factor: 0.9
+  actuator:
+    effort_limit: 23.5
+    saturation_effort: 23.5
+    velocity_limit: 30.0
+    stiffness_nominal: 25.0
+    damping_nominal: 0.5
+    friction_nominal: 0.0
+events:
+- name: physics_material
+  mode: startup
+  func: randomize_rigid_body_material
+  params:
+    asset_cfg:
+      name: robot
+      joint_names: null
+      joint_ids: slice(None, None, None)
+      fixed_tendon_names: null
+      fixed_tendon_ids: slice(None, None, None)
+      body_names: .*
+      body_ids: slice(None, None, None)
+      object_collection_names: null
+      object_collection_ids: slice(None, None, None)
+      preserve_order: false
+    static_friction_range:
+    - 0.1
+    - 2.0
+    dynamic_friction_range:
+    - 0.1
+    - 2.0
+    restitution_range:
+    - 0.0
+    - 0.0
+    num_buckets: 64
+- name: add_base_mass
+  mode: startup
+  func: randomize_rigid_body_mass
+  params:
+    asset_cfg:
+      name: robot
+      joint_names: null
+      joint_ids: slice(None, None, None)
+      fixed_tendon_names: null
+      fixed_tendon_ids: slice(None, None, None)
+      body_names: base
+      body_ids: slice(None, None, None)
+      object_collection_names: null
+      object_collection_ids: slice(None, None, None)
+      preserve_order: false
+    mass_distribution_params:
+    - -2.0
+    - 4.0
+    operation: add
+- name: reset_base
+  mode: reset
+  func: reset_root_state_uniform
+  params:
+    pose_range:
+      x:
+      - -0.5
+      - 0.5
+      y:
+      - -0.5
+      - 0.5
+      yaw:
+      - -3.14
+      - 3.14
+    velocity_range:
+      x:
+      - 0.0
+      - 0.0
+      y:
+      - 0.0
+      - 0.0
+      z:
+      - 0.0
+      - 0.0
+      roll:
+      - 0.0
+      - 0.0
+      pitch:
+      - 0.0
+      - 0.0
+      yaw:
+      - 0.0
+      - 0.0
+- name: reset_robot_joints
+  mode: reset
+  func: reset_joints_by_scale
+  params:
+    position_range:
+    - 1.0
+    - 1.0
+    velocity_range:
+    - 0.0
+    - 0.0
+- name: motor_strength
+  mode: startup
+  func: randomize_actuator_gains
+  params:
+    asset_cfg:
+      name: robot
+      joint_names: null
+      joint_ids: slice(None, None, None)
+      fixed_tendon_names: null
+      fixed_tendon_ids: slice(None, None, None)
+      body_names: null
+      body_ids: slice(None, None, None)
+      object_collection_names: null
+      object_collection_ids: slice(None, None, None)
+      preserve_order: false
+    stiffness_distribution_params:
+    - 0.6
+    - 1.4
+    damping_distribution_params:
+    - 0.6
+    - 1.4
+    operation: scale
+rewards:
+- name: track_lin_vel_xy_exp
+  weight: 1.5
+  func: track_lin_vel_xy_exp
+  params:
+    command_name: base_velocity
+    std: 0.5
+- name: track_ang_vel_z_exp
+  weight: 0.2
+  func: track_ang_vel_z_exp
+  params:
+    command_name: base_velocity
+    std: 0.5
+- name: lin_vel_z_l2
+  weight: -1.0
+  func: lin_vel_z_l2
+  params: {}
+- name: ang_vel_xy_l2
+  weight: -0.05
+  func: ang_vel_xy_l2
+  params: {}
+- name: dof_torques_l2
+  weight: -0.0002
+  func: joint_torques_l2
+  params: {}
+- name: dof_acc_l2
+  weight: -5.0e-07
+  func: joint_acc_l2
+  params: {}
+- name: action_rate_l2
+  weight: -0.003
+  func: action_rate_l2
+  params: {}
+- name: feet_air_time
+  weight: 0.4
+  func: feet_air_time
+  params:
+    sensor_cfg:
+      name: contact_forces
+      joint_names: null
+      joint_ids: slice(None, None, None)
+      fixed_tendon_names: null
+      fixed_tendon_ids: slice(None, None, None)
+      body_names: .*_foot
+      body_ids: slice(None, None, None)
+      object_collection_names: null
+      object_collection_ids: slice(None, None, None)
+      preserve_order: false
+    command_name: base_velocity
+    threshold: 0.5
+- name: flat_orientation_l2
+  weight: -2.5
+  func: flat_orientation_l2
+  params: {}
+- name: dof_pos_limits
+  weight: -0.1
+  func: joint_pos_limits
+  params: {}
+- name: feet_slide
+  weight: -0.1
+  func: feet_slide
+  params:
+    sensor_cfg:
+      name: contact_forces
+      joint_names: null
+      joint_ids: slice(None, None, None)
+      fixed_tendon_names: null
+      fixed_tendon_ids: slice(None, None, None)
+      body_names: .*_foot
+      body_ids: slice(None, None, None)
+      object_collection_names: null
+      object_collection_ids: slice(None, None, None)
+      preserve_order: false
+    asset_cfg:
+      name: robot
+      joint_names: null
+      joint_ids: slice(None, None, None)
+      fixed_tendon_names: null
+      fixed_tendon_ids: slice(None, None, None)
+      body_names: .*_foot
+      body_ids: slice(None, None, None)
+      object_collection_names: null
+      object_collection_ids: slice(None, None, None)
+      preserve_order: false
+curriculum:
+- name: terrain_levels
+  func: terrain_levels_vel_monotonic
+  params: {}
+runtime_sample:
+  env_index: 0
+  command:
+    lin_vel_x: 0.10411114990711212
+    lin_vel_y: 0.0
+    ang_vel_z: 0.0
+  base_com_offset:
+  - 0.0
+  - 0.0
+  - 0.0
+  motor_stiffness:
+  - 26.909738540649414
+  - 17.768293380737305
+  - 25.599407196044922
+  - 34.42382049560547
+  - 15.065433502197266
+  - 19.808744430541992
+  - 33.629600524902344
+  - 24.344175338745117
+  - 15.659564971923828
+  - 28.247493743896484
+  - 25.716245651245117
+  - 15.397421836853027
+  motor_stiffness_normalized:
+  - 1.0763895416259766
+  - 0.7107317352294922
+  - 1.0239762878417968
+  - 1.3769528198242187
+  - 0.6026173400878906
+  - 0.7923497772216797
+  - 1.3451840209960937
+  - 0.9737670135498047
+  - 0.6263825988769531
+  - 1.1298997497558594
+  - 1.0286498260498047
+  - 0.6158968734741211
+  motor_damping:
+  - 0.3963727056980133
+  - 0.5369874835014343
+  - 0.6582784652709961
+  - 0.6865326166152954
+  - 0.35667651891708374
+  - 0.554760217666626
+  - 0.6786326766014099
+  - 0.5293987989425659
+  - 0.5319516658782959
+  - 0.658233642578125
+  - 0.46327656507492065
+  - 0.622515082359314
+  policy_obs_stats:
+    shape:
+    - 48
+    min: -1.3459718227386475
+    max: 1.411351203918457
+    mean: 0.04925810545682907
+    std: 0.4393984377384186
+  privileged_obs_stats:
+    shape:
+    - 204
+    min: -0.42376935482025146
+    max: 1.3769527673721313
+    mean: -0.32814738154411316
+    std: 0.3444002568721771
+  height_scan_stats:
+    shape:
+    - 187
+    min: -0.42376935482025146
+    max: -0.4237689971923828
+    mean: -0.4237692952156067
+    std: 8.908681792263451e-08
+  dynamics_sample:
+  - 1.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 1.0763895511627197
+  - 0.7107317447662354
+  - 1.02397620677948
+  - 1.3769527673721313
+  - 0.6026173233985901
+  - 0.7923497557640076
+  - 1.3451839685440063
+  - 0.9737669825553894
+  - 0.62638258934021
+  - 1.1298997402191162
+  - 1.0286498069763184
+  - 0.6158968806266785

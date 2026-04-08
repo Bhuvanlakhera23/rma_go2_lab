@@ -201,7 +201,10 @@ class Go2RMATeacherRoughEnvCfg(UnitreeGo2RoughEnvCfg):
         # ------------------------------------------------
 
         self.scene.robot.spawn.usd_path = "/home/bhuvan/assets/go2/go2.usd"
-        self.scene.num_envs = 4096 # Cranked back up! Warp sampler is stable.
+
+        # 🔵 Scene Scale: Default to 4096 for training.
+        # Use CLI --num_envs 1 for playback.
+        self.scene.num_envs = 4096
 
         # ------------------------------------------------
         # 🔴 RMA Bottleneck: RAW TERRAIN SAMPLING (NOT SENSOR)

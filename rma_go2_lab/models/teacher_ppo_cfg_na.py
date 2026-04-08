@@ -8,8 +8,15 @@ from isaaclab_rl.rsl_rl import (
 )
 
 @configclass
+class RMAPolicyCfg(RslRlPpoActorCriticCfg):
+    pretrained_path: str = None
+    num_actor_obs: int = None
+    num_critic_obs: int = None
+
+@configclass
 class Go2RMATeacherPPORunnerCfg(RslRlOnPolicyRunnerCfg):
 
+    num_envs = None # Allow CLI override (e.g. num_envs=1)
     num_steps_per_env = 32
     max_iterations = 2000  # fresh teacher run budget
     save_interval = 20
@@ -17,11 +24,11 @@ class Go2RMATeacherPPORunnerCfg(RslRlOnPolicyRunnerCfg):
     experiment_name = "go2_rma_teacher_na"
 
     obs_groups = {
-        "policy": ["policy"],
-        "critic": ["policy", "privileged"],
+        "policy": ["policy"],  # Actor sees deployable policy observations only.
+        "critic": ["policy", "privileged"],  # Asymmetric critic keeps privileged context.
     }
 
-    policy = dict(
+    policy = RMAPolicyCfg(
         class_name="RMAActorCritic",
         init_noise_std=0.5, # 🟢 Lower noise to preserve bootstrap stability
         actor_hidden_dims=[512, 256, 128],

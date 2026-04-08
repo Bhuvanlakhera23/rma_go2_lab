@@ -16,8 +16,9 @@ venv/
 
 # Generated experiment outputs
 outputs/
-artifacts/manifests/*.yaml
-artifacts/manifests/*.md
+artifacts/evaluations/tmp/
+artifacts/evaluations/legacy_raw/
+.codex
 
 # Training artifacts
 rma_go2_lab/policies/**/events.out.tfevents.*
