@@ -16,8 +16,16 @@ venv/
 
 # Generated experiment outputs
 outputs/
+logs/
+logs
 artifacts/evaluations/tmp/
+artifacts/evaluations/**/tmp/
 artifacts/evaluations/legacy_raw/
+artifacts/evaluations/baseline1/
+artifacts/evaluations/baseline2/
+artifacts/evaluations/baseline3/
+artifacts/evaluations/flat_prior/
+artifacts/evaluations/clips/
 .codex
 
 # Training artifacts

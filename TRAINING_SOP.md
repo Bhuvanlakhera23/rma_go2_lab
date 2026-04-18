@@ -1,372 +1,225 @@
 # Training SOP
 
-This file defines the standard operating procedure for training and qualifying the Go2 RMA pipeline in this repository.
+This file is the short operational SOP for the active repo state.
 
-The goal is to stop ad-hoc trial-and-error and replace it with staged training, explicit entry and exit criteria, and a repeatable qualification workflow.
+The current project is organized around one baseline-first ladder:
 
-## Principles
+1. flat prior
+2. Baseline 1: rough scratch
+3. Baseline 2: rough warm-start
+4. Baseline 3: rough warm-start + imitation
 
-- Train one difficulty axis at a time.
-- Do not widen the task and increase robustness stressors in the same stage.
-- Treat scalar reward as necessary but not sufficient.
-- Visual inspection is mandatory for checkpoint qualification.
-- A stage is complete only when its exit criteria are met.
-- Do not start student training until the teacher is explicitly qualified.
+If another document conflicts with this one, prefer this file unless we
+explicitly replace it with a newer SOP.
 
-## Canonical Artifacts
+## Goal
 
-For every serious run, keep:
+The goal is to build and compare a clean proprio-only locomotion ladder under a
+frozen benchmark.
 
-- the IsaacLab run directory under `logs/rsl_rl/...`
-- one manifest from `scripts/export_teacher_manifest.py`
-- one checkpoint evaluation report from `scripts/eval_teacher.py`
+The repo is not currently organized around the old teacher/student training
+story. That architecture has been removed from the active branch.
 
-Large checkpoint binaries should normally stay in the IsaacLab log directories. The small set of explicitly frozen policy artifacts under `rma_go2_lab/policies/` are exceptions used as stable project milestones; record their lineage and hashes in manifests.
+## Governing Principle
 
+The purpose of the active pipeline is not:
 
-## Current Final Lineage
+- maximum reward
+- maximum terrain difficulty
+- maximum obstacle specialization
 
-The current final teacher in this repo was produced by a staged warm-start process, not by a single monolithic training run:
+The purpose is:
 
-1. Stage A flat backbone: `/home/bhuvan/tools/IsaacLab/logs/rsl_rl/go2_rma_flat/2026-04-02_12-26-57/model_1499.pt`
-2. Stage B general rough teacher: `/home/bhuvan/tools/IsaacLab/logs/rsl_rl/go2_rma_teacher_na/2026-04-02_18-41-09/model_1999.pt`
-3. Stage D stair/pyramid refinement: `/home/bhuvan/tools/IsaacLab/logs/rsl_rl/go2_rma_teacher_na/2026-04-06_11-18-41/model_240.pt`
-4. Frozen golden teacher artifact: `rma_go2_lab/policies/rough_teacher_v2_refined_240.pt`
+- establish stable frozen baselines
+- evaluate them under the same mismatch protocol
+- make later comparisons interpretable
 
-This lineage matters. If reproducing the result, first train/select the flat backbone, then train the general rough RMA teacher from that backbone, then refine the teacher on the stair/pyramid-heavy curriculum. Skipping the Stage B warm start changes the experiment.
+## Active Pipeline
 
-## Current Mental Model
+### Stage 1: Flat Prior
 
-This repository is an RMA-inspired Go2 locomotion pipeline, not a direct one-file reproduction of the original paper. The implemented structure is:
+Task:
 
-1. Flat deployable backbone
-What it is: a proprioceptive policy trained on flat ground.
-Why it matters: it acts as the clean gait prior, analogous in role to the prior/base policy used in staged RMA-style reference implementations.
-
-2. Privileged rough teacher
-What it is: a non-deployable teacher that receives proprioception plus a learned latent `z`.
-Hidden context: the latent is produced from privileged simulation-only observations: dynamics parameters and a terrain height profile.
-Critic structure: the critic is asymmetric and sees policy plus privileged observations.
-
-3. Stair/pyramid refinement
-What it is: a refinement stage starting from the general rough teacher.
-Why it matters: it biases terrain exposure toward stairs and boxes to improve obstacle behavior.
-
-4. Student/adaptation phase
-What it is: the next phase.
-Goal: the student should learn deployable adaptation from history/proprioception rather than privileged terrain/dynamics.
-
-The current teacher is promising enough to move into Phase 2 / student work, but it is not perfect. The latest complete fixed-level stress suite shows strong behavior on level-9 random rough, stair descent, and several dynamics extremes, while level-9 stair ascent and boxes remain known weak spots. Document this honestly: it is the current best teacher artifact for distillation experiments, not a fully solved max-difficulty stair-ascent policy.
-
-## Stage Definitions
-
-### Stage A: Flat Seed
+- `RMA-Go2-Flat`
 
 Purpose:
 
-- learn a stable forward locomotion prior
-- produce the bootstrap checkpoint for the rough teacher
+- learn a clean nominal locomotion prior
+- provide the warm-start source for later baselines
 
-Allowed task complexity:
+Qualification rule:
 
-- flat terrain only
-- forward-only commands
-- no pushes
+- freeze one validated checkpoint
+- keep only the small sanity record needed for reuse
 
-Allowed robustness/randomization:
+Current frozen artifact:
 
-- moderate mass/friction/gain randomization is acceptable
-- do not expand the task to rough terrain or obstacle negotiation here
+- `rma_go2_lab/policies/flat1499.pt`
 
-Minimum acceptance criteria:
+### Stage 2: Baseline 1
 
-- episodes consistently time out on flat terrain
-- near-zero `base_contact`
-- straight forward walking in playback
-- no obvious drift, shuffling, or freezing
+Task:
 
-Deliverable:
-
-- one canonical flat checkpoint path
-
-### Stage B: Rough Teacher Warm Start
+- `RMA-Go2-Blind-Baseline-Rough`
 
 Purpose:
 
-- transfer the flat gait to rough terrain
-- learn terrain-conditioned behavior using privileged information
+- establish the honest scratch rough baseline
 
-Required setup:
+Qualification rule:
 
-- bootstrap from the canonical flat checkpoint
-- forward-only commands
-- monotonic terrain curriculum
-- no pushes
-- no command-space expansion beyond what the flat seed supports
+- train with the frozen shared rough task
+- evaluate with the frozen suite and gait checks
+- freeze exactly one checkpoint and its clip set
 
-Current intended configuration:
+Current frozen artifact:
 
-- actor uses policy obs plus latent `z`
-- encoder uses privileged terrain and dynamics
-- critic uses policy obs plus privileged obs
+- `rma_go2_lab/policies/blind_baseline1_scratch_final.pt`
 
-Allowed robustness/randomization:
+### Stage 3: Baseline 2
 
-- friction randomization
-- mass randomization
-- motor stiffness and damping randomization
-- no rollout pushes yet
+Task:
 
-What this stage is not:
-
-- not stair-climbing specialization
-- not multidirectional control
-- not the student stage
-
-Exit criteria:
-
-- rough terrain levels increase and remain high without curriculum collapse
-- `base_contact` is materially reduced relative to early training
-- playback shows stable rough forward walking
-- latent ablation matters:
-  - normal `z` performs best
-  - zeroed `z` degrades
-  - shuffled `z` degrades
-
-Deliverable:
-
-- one best Stage B checkpoint selected by evaluation, not by last iteration alone
-
-### Stage C: Rough Robustness
+- `RMA-Go2-Blind-Baseline-Rough-WarmStart`
 
 Purpose:
 
-- improve robustness on harder rough terrain while preserving the Stage B gait prior
+- measure the value of flat-prior warm-start over scratch
 
-Input:
+Qualification rule:
 
-- best Stage B checkpoint
+- same shared rough task as B1
+- only the initialization changes
+- evaluate with the same frozen suite and clip manifest
 
-Allowed changes:
+Current frozen artifact:
 
-- increase terrain difficulty
-- increase breadth of randomized dynamics gradually
-- introduce observation noise and latency if deployment requires them
+- `rma_go2_lab/policies/blind_baseline2_warmstart_final.pt`
 
-Do not change yet:
+### Stage 4: Baseline 3
 
-- no pushes unless Stage D is intentionally started
-- no broad command-space expansion
+Task:
 
-Exit criteria:
-
-- stable playback on harder rough terrain
-- lower failure rate than Stage B on the same held-out terrains
-- no collapse to conservative near-static behavior
-
-Deliverable:
-
-- one qualified rough forward teacher checkpoint
-
-### Stage D: Obstacle Curriculum
+- `RMA-Go2-Blind-Baseline-Rough-WarmStart-Imitation`
 
 Purpose:
 
-- teach behaviors that generic rough terrain does not reliably induce
-- especially step-up, curb, stair-up, and stair-down traversal
+- measure whether temporary imitation from the flat prior improves over B2
 
-Rationale:
+Qualification rule:
 
-- generic rough-terrain success does not imply stair-climbing success
-- descending obstacles is easier than ascending them
-- if the robot can descend but cannot climb the first step, this stage is missing
+- same shared rough task as B1/B2
+- same frozen evaluation protocol
+- only the training mechanism changes
 
-Allowed changes:
+## Fairness Rules
 
-- introduce dedicated obstacle terrains
-- use staged obstacle difficulty
-- add small task shaping only if behavior clearly fails without it
+When comparing B1, B2, and B3:
 
-Preferred order of intervention:
+- keep the rough environment shared
+- keep the actor observation interface fixed
+- keep the command distribution fixed
+- keep the evaluation suite fixed
+- keep the recording manifest fixed
+- change only the intended experimental variable
 
-1. dedicated obstacle terrains
-2. targeted evaluation on those terrains
-3. only then consider small shaping terms for obstacle clearance or repeated collision failure modes
+Do not casually broaden commands, change rewards, or change terrain families in
+only one baseline.
 
-Do not do:
+## Canonical Evaluation
 
-- do not add many new rewards at once
-- do not assume more training time alone will create step-up behavior
+The active evaluation stack is:
 
-Exit criteria:
+- `scripts/eval/gait.py`
+- `scripts/eval/run_isolated_suite.py`
+- `scripts/eval/record_clip.py`
+- `scripts/eval/record_overview_clip.py`
 
-- robot can climb the first step from flat ground
-- robot can negotiate repeated step-ups in playback
-- robot can descend without collapse
-- latent-conditioned behavior visibly changes before obstacle contact
+Primary frozen suite:
 
-Deliverable:
+- `blind_baseline_v1`
 
-- one obstacle-capable teacher checkpoint
+Primary artifact families:
 
-### Stage E: Disturbance Hardening
+- `artifacts/evaluations/flat_prior/`
+- `artifacts/evaluations/baseline1/`
+- `artifacts/evaluations/baseline2/`
+- `artifacts/evaluations/baseline3/`
+- `artifacts/evaluations/clips/`
 
-Purpose:
+## Canonical Recording Manifest
 
-- improve recovery robustness after the base locomotion and obstacle behaviors already exist
+Every frozen blind baseline should carry the same clip set:
 
-Allowed changes:
+- `nominal_overview`
+- `nominal_hero`
+- `low_friction_hero`
+- `weak_motor_hero`
+- `heavy_mass_hero`
 
-- rollout pushes
-- stronger disturbance events
-- possibly re-enable additional body randomization such as base COM if needed
+Keep recording conditions identical across B1, B2, and B3. Only the checkpoint
+should change.
 
-Input:
+Store clips under:
 
-- best pre-push teacher checkpoint
+- `artifacts/evaluations/clips/baseline1/`
+- `artifacts/evaluations/clips/baseline2/`
+- `artifacts/evaluations/clips/baseline3/`
 
-Rules:
+Each clip folder should contain:
 
-- keep the pre-push checkpoint as fallback
-- do not introduce pushes before the base teacher is already qualified
+- one `.mp4`
+- one `metadata.json`
 
-Exit criteria:
+## Freeze Rules
 
-- recovery improves under disturbances without destroying tracking or obstacle performance
+A run is ready to freeze only when all of the following are true:
 
-Deliverable:
+1. the training run reached its intended horizon or a justified selected
+   checkpoint
+2. gait evals are recorded
+3. the frozen suite is complete, not partial
+4. the canonical clip set is recorded
+5. the checkpoint is copied into `rma_go2_lab/policies/`
+6. a freeze note is written under `rma_go2_lab/policies/`
 
-- hardened teacher checkpoint
+Do not silently replace a frozen checkpoint in place.
 
-### Stage F: Student / Adaptation
+If a better version is trained later:
 
-Purpose:
+- create a new explicitly versioned artifact
+- do not overwrite the old one
 
-- replace privileged terrain/dynamics encoding with an adaptation module that infers context from deployable observations
+## What To Commit
 
-Prerequisite:
+Commit:
 
-- a qualified teacher already exists
+- code
+- docs
+- frozen `.pt` policy artifacts
 
-Rules:
+Do not treat raw local run outputs as source code.
 
-- do not train the student against an unqualified teacher
-- evaluate student against the same terrain and obstacle suites used for teacher qualification
+By default, do not commit:
 
-Deliverable:
+- raw intermediate eval dumps unless they are part of the frozen artifact set
+- generated temp eval folders
+- ad hoc video recordings not selected for comparison
+- IsaacLab log directories
 
-- deployable student using proprioceptive history rather than privileged observations
+## Reading Order
 
-## Qualification Workflow
+For repo orientation, read in this order:
 
-Every serious checkpoint sweep should include:
+1. `docs/PROJECT_GUIDE.md`
+2. `TRAINING_SOP.md`
+3. `rma_go2_lab/policies/blind_baseline_protocol.md`
+4. `rma_go2_lab/policies/README.md`
+5. `artifacts/evaluations/README.md`
 
-1. Scalar review
-- reward
-- episode length
-- `base_contact`
-- `time_out`
-- `terrain_levels`
-- `error_vel_xy`
-- `error_vel_yaw`
-- latent statistics if available
+## One-Line Mental Model
 
-2. Latent ablation
-- normal `z`
-- zeroed `z`
-- shuffled `z`
+This repo is a clean proprio-baseline ladder:
 
-3. Visual playback
-- flat terrain
-- held-out rough terrain
-- obstacle terrains if the stage includes them
-
-4. Failure-mode notes
-- yaw drift
-- toe scuffing
-- inability to climb the first step
-- conservative shuffling
-- terrain collapse
-
-Use `scripts/eval_teacher.py` for scalar and ablation ranking, then confirm finalists by playback.
-
-## Evaluation Rules
-
-- Do not crown the final iteration automatically.
-- Rank checkpoints from the run.
-- Prefer a checkpoint with better behavior over a checkpoint with slightly higher scalar reward.
-- If reward improves because curriculum collapsed, reject that checkpoint.
-- If playback contradicts the logs, trust playback.
-
-## Randomization Policy
-
-Use staged realism.
-
-Start earlier:
-
-- friction
-- mass
-- actuator gain variation
-
-Add later:
-
-- observation noise
-- command delay or latency
-- pushes
-- extra body perturbations such as base COM if needed
-
-Rule:
-
-- if a realism source makes the current stage stop learning the core skill, move it to a later stage
-
-## Visual Inspection SOP
-
-Do not develop locomotion headless-only.
-
-Minimum playback checks:
-
-- straight forward walking on flat terrain
-- rough terrain traversal
-- first-step ascent test
-- stair descent
-- yaw drift check
-
-Reason:
-
-- many locomotion failures are not visible in reward curves alone
-
-## Record-Keeping SOP
-
-For each canonical run:
-
-- export a manifest near the start of training
-- keep the run directory
-- record the chosen checkpoint path
-- record why the checkpoint was selected
-- note known failure modes
-
-Suggested naming:
-
-- manifests: `<task>_<stage>_<timestamp>_manifest.*`
-- evaluation reports: `<task>_<stage>_<timestamp>_eval.*`
-
-## Current Project Status
-
-As of the final teacher handoff:
-
-- Stage A is complete with the selected flat backbone checkpoint.
-- Stage B is complete with the selected general rough RMA teacher checkpoint.
-- Stage D refinement is complete enough to freeze `rough_teacher_v2_refined_240.pt` as the current teacher artifact for Phase 2, but not enough to claim fully solved level-9 obstacle mastery.
-- The complete teacher stress suite has been run and recorded under `artifacts/evaluations/`.
-- Known teacher weaknesses remain: level-9 stair ascent and boxes.
-- Phase 2 should proceed to student/adaptation using this teacher, while keeping the known failure modes visible in evaluation.
-
-## Push / Commit Rule
-
-Push the code when a training revision reaches a coherent decision point:
-
-- the run clearly fails and a new revision is required
-- or a checkpoint is selected as the canonical output of that stage
-
-Do not push mid-run just because the code compiles.
-Push when the code and the training outcome together form a coherent stage result.
+train one flat prior, freeze B1/B2/B3 under a shared rough benchmark, and keep
+the artifacts structured enough that comparisons stay obvious.

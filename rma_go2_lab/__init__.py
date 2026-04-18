@@ -1,15 +1,12 @@
 import gymnasium as gym
 
-from rma_go2_lab.models.ppo_with_flat_expert import PPOWithFlatExpert
-from rma_go2_lab.models.rma_actor_critic import RMAActorCritic, RMAStudentActorCritic
-from rma_go2_lab.models.ppo_with_rma_adaptation import PPOWithRMAAdaptation
+from rma_go2_lab.models.blind.actor_critic import WarmStartActorCritic
+from rma_go2_lab.models.blind.ppo_with_flat_expert import BlindPPOWithFlatExpert
 import rsl_rl.runners.on_policy_runner as _rsl_on_policy_runner
 
 # Inject custom classes so rsl_rl's eval() can find them
-_rsl_on_policy_runner.PPOWithFlatExpert = PPOWithFlatExpert
-_rsl_on_policy_runner.RMAActorCritic = RMAActorCritic
-_rsl_on_policy_runner.RMAStudentActorCritic = RMAStudentActorCritic
-_rsl_on_policy_runner.PPOWithRMAAdaptation = PPOWithRMAAdaptation
+_rsl_on_policy_runner.WarmStartActorCritic = WarmStartActorCritic
+_rsl_on_policy_runner.BlindPPOWithFlatExpert = BlindPPOWithFlatExpert
 
 #Teacher Flat
 gym.register(
@@ -17,62 +14,44 @@ gym.register(
     entry_point="isaaclab.envs:ManagerBasedRLEnv",
     kwargs={
         "env_cfg_entry_point":
-            "rma_go2_lab.envs.flat_expert_cfg:Go2RMATeacherEnvCfg",
+            "rma_go2_lab.envs.priors.flat_cfg:Go2FlatPriorEnvCfg",
 
         "rsl_rl_cfg_entry_point":
-            "rma_go2_lab.models.flat_ppo_cfg:Go2RMAFlatPPORunnerCfg",
+            "rma_go2_lab.models.priors.flat_ppo_cfg:Go2FlatPriorPPORunnerCfg",
     },
 )
 
-#Teacher Rough V1
+# Active pipeline only:
+# flat prior plus the three blind baseline variants.
 gym.register(
-    id="RMA-Go2-Teacher-Rough",
+    id="RMA-Go2-Blind-Baseline-Rough",
     entry_point="isaaclab.envs:ManagerBasedRLEnv",
     kwargs={
         "env_cfg_entry_point":
-            "rma_go2_lab.envs.teacher_cfg_rough:Go2RMATeacherRoughEnvCfg",
+            "rma_go2_lab.envs.blind.rough_cfg:Go2BlindBaselineRoughEnvCfg",
         "rsl_rl_cfg_entry_point":
-            "isaaclab_tasks.manager_based.locomotion.velocity.config.go2.agents.rsl_rl_ppo_cfg:UnitreeGo2RoughPPORunnerCfg",
+            "rma_go2_lab.models.blind.variants_ppo_cfg:Go2BlindBaselineScratchPPORunnerCfg",
     },
 )
 
-#Teacher Rough Non-Adaptive Baseline
 gym.register(
-    id="RMA-Go2-Teacher-Rough-NA",
+    id="RMA-Go2-Blind-Baseline-Rough-WarmStart",
     entry_point="isaaclab.envs:ManagerBasedRLEnv",
     kwargs={
         "env_cfg_entry_point":
-            "rma_go2_lab.envs.teacher_cfg_rough_na:Go2RMATeacherRoughEnvCfg",
+            "rma_go2_lab.envs.blind.rough_cfg:Go2BlindBaselineRoughEnvCfg",
         "rsl_rl_cfg_entry_point":
-            "rma_go2_lab.models.teacher_ppo_cfg_na:Go2RMATeacherPPORunnerCfg",
+            "rma_go2_lab.models.blind.variants_ppo_cfg:Go2BlindBaselineWarmStartPPORunnerCfg",
     },
 )
 
-# Student / Adaptation Phase (Stage F)
 gym.register(
-    id="RMA-Go2-Student-Rough-NA",
+    id="RMA-Go2-Blind-Baseline-Rough-WarmStart-Imitation",
     entry_point="isaaclab.envs:ManagerBasedRLEnv",
     kwargs={
         "env_cfg_entry_point":
-            "rma_go2_lab.envs.student_cfg_rough_na:Go2RMAStudentRoughEnvCfg",
+            "rma_go2_lab.envs.blind.rough_cfg:Go2BlindBaselineRoughEnvCfg",
         "rsl_rl_cfg_entry_point":
-            "rma_go2_lab.models.student_ppo_cfg_na:Go2RMAStudentPPORunnerCfg",
-    },
-)
-
-# ------------------------------------------------
-# Benchmarking Baselines
-# ------------------------------------------------
-
-# Baseline: Robust Domain Randomization (Blind PPO)
-# Trained on the same Level 9 Rough/Stairs environment but without RMA heads.
-gym.register(
-    id="RMA-Go2-Baseline-Robust",
-    entry_point="isaaclab.envs:ManagerBasedRLEnv",
-    kwargs={
-        "env_cfg_entry_point":
-            "rma_go2_lab.envs.teacher_cfg_rough_na:Go2RMATeacherRoughEnvCfg",
-        "rsl_rl_cfg_entry_point":
-            "isaaclab_tasks.manager_based.locomotion.velocity.config.go2.agents.rsl_rl_ppo_cfg:UnitreeGo2RoughPPORunnerCfg",
+            "rma_go2_lab.models.blind.variants_ppo_cfg:Go2BlindBaselineWarmStartImitationPPORunnerCfg",
     },
 )

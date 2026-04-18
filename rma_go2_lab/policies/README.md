@@ -1,81 +1,70 @@
-# RMA-Go2 Policies Archive
+# RMA-Go2 Policy Archive
 
-This directory contains the frozen policy milestones for the RMA-Go2 project.
+This directory is now baseline-first and intentionally small:
 
-The project follows an RMA-inspired staged structure:
+- current blind-baseline procedure docs live here
+- only the `.pt` files needed for current baseline comparison are kept here
+- old teacher/student bundles are not part of the active workflow
 
-- train a clean deployable flat backbone
-- train a privileged rough teacher from that backbone
-- refine the teacher on obstacle-heavy terrain
-- distill/adapt into a deployable student later
+Read these first:
 
----
+1. `docs/PROJECT_GUIDE.md`
+2. `rma_go2_lab/policies/blind_baseline_protocol.md`
 
-## Final Teacher Lineage
+## Active Meaning
 
-The final teacher was produced through a staged warm-start chain. This is intentional and should be preserved when reproducing the project:
+Right now, the live project focus is:
 
-1. **Flat backbone expert**
-   - Run: `/home/bhuvan/tools/IsaacLab/logs/rsl_rl/go2_rma_flat/2026-04-02_12-26-57`
-   - Selected checkpoint: `model_1499.pt`
-   - Role: clean deployable forward-trot prior, analogous to the prior/base policy used as a backbone in staged RMA-style pipelines.
+1. flat prior sanity
+2. blind baseline training
+3. blind baseline evaluation under the frozen SOP
 
-2. **Stage B general rough RMA teacher**
-   - Run: `/home/bhuvan/tools/IsaacLab/logs/rsl_rl/go2_rma_teacher_na/2026-04-02_18-41-09`
-   - Selected checkpoint: `model_1999.pt`
-   - Frozen artifact: `rough_teacher_v1_base.pt`
-   - Role: privileged rough-terrain teacher initialized from the flat backbone. This solved general rough locomotion but still showed the Stair Paradox.
+So this directory should not be read as proof that the teacher/student pipeline is
+currently active or finalized. Those ideas remain future work in the cleaned-up
+repo state.
 
-3. **Stage D stair/pyramid refinement**
-   - Run: `/home/bhuvan/tools/IsaacLab/logs/rsl_rl/go2_rma_teacher_na/2026-04-06_11-18-41`
-   - Warm start: `2026-04-02_18-41-09/model_1999.pt`
-   - Selected checkpoint: `model_240.pt`
-   - Frozen artifact: `rough_teacher_v2_refined_240.pt`
-   - Role: current final privileged teacher for student distillation, refined on stair/pyramid-heavy terrain.
+## Canonical `.pt` Files
 
-Important: do **not** interpret `rough_teacher_v2_refined_240.pt` as a teacher trained from scratch. It is a refinement of the Stage B rough teacher, which itself was initialized from the flat backbone expert.
+These are the only policy checkpoints currently kept here on purpose:
 
-Also important: `rough_teacher_v2_refined_240.pt` is **not deployable as-is**. It is a privileged teacher that uses simulation-only dynamics and terrain-height information. The deployable output of the RMA pipeline should come from the later student/adaptation phase.
+- `rma_go2_lab/policies/flat1499.pt`
+  - selected flat locomotion prior
+  - used to warm-start the blind warm-start baseline
+- `rma_go2_lab/policies/blind_baseline1_scratch_final.pt`
+  - frozen final Baseline 1 checkpoint
+  - selected from `model_1999.pt`
+- `rma_go2_lab/policies/blind_baseline2_warmstart_final.pt`
+  - frozen final Baseline 2 checkpoint
+  - selected from `model_1500.pt`
 
----
+Baseline 1 freeze note:
 
-### 1. [rough_teacher_v1_base.pt](file:///home/bhuvan/projects/rma/rma_go2_lab/rma_go2_lab/policies/rough_teacher_v1_base.pt)
-*   **Stage:** Phase 3 - Stage B (Generalist)
-*   **Description:** The first successful teacher trained on standard rough terrain curriculum.
-*   **Performance:** Highly robust on uneven ground but suffered from the **"Stair Paradox"** (struggled with Level 9 pyramid stairs despite having sensors).
-*   **Use Case:** Baseline for general rough terrain locomotion.
+- `rma_go2_lab/policies/blind_baseline1_scratch_final.md`
 
-### 2. [rough_teacher_v2_refined_100.pt](file:///home/bhuvan/projects/rma/rma_go2_lab/rma_go2_lab/policies/rough_teacher_v2_refined_100.pt)
-*   **Stage:** Phase 3 - Stage D (Specialist) - Iteration 100
-*   **Description:** The first specialized checkpoint after forcing 90% stair proportions.
-*   **Use Case:** Early-stage expert for student distillation debugging and comparison against the later refined checkpoint.
+Baseline 2 freeze note:
 
-### 3. [rough_teacher_v2_refined_240.pt](file:///home/bhuvan/projects/rma/rma_go2_lab/rma_go2_lab/policies/rough_teacher_v2_refined_240.pt) (current final teacher)
-*   **Stage:** Phase 3 - Stage D refinement - Iteration 240
-*   **Description:** Current best privileged teacher artifact for Phase 2 student/adaptation experiments.
-*   **Strengths:** Strong on held-out level-9 random rough, stair descent, and several dynamics-stress cases.
-*   **Known weaknesses:** Level-9 stair ascent and boxes still fail heavily in the complete stress suite, so do not describe this as a fully solved max-difficulty stair-climbing policy.
-*   **Use Case:** Supervisor / teacher checkpoint for student distillation and adaptation experiments.
+- `rma_go2_lab/policies/blind_baseline2_warmstart_final.md`
 
-## Current Qualification Artifacts
+Flat prior freeze note:
 
-Final teacher manifest:
+- `rma_go2_lab/policies/flat_prior_final.md`
 
-- `artifacts/manifests/final_teacher_stage_d_rough_teacher_v2_refined_240_manifest.md`
-- `artifacts/manifests/final_teacher_stage_d_rough_teacher_v2_refined_240_manifest.yaml`
+## Current Evaluation Artifacts
 
-Complete teacher stress suite:
+Use `artifacts/evaluations/` for active outputs, organized by artifact family.
 
-- `artifacts/evaluations/isolated_suite_rough_teacher_v2_refined_240_complete_teacher_level9_normal_seed999.json`
-- `artifacts/evaluations/isolated_suite_rough_teacher_v2_refined_240_complete_teacher_level9_normal_seed999.csv`
+The flat-prior sanity artifacts currently worth keeping are:
 
-Visualization:
+- `artifacts/evaluations/flat_prior/gait_flat_prior_model1500_standstill.json`
+- `artifacts/evaluations/flat_prior/gait_flat_prior_model1500_forward.json`
 
-- `artifacts/evaluations/plots/isolated_suite_rough_teacher_v2_refined_240_complete_teacher_level9_normal_seed999_survival.png`
-- `artifacts/evaluations/plots/isolated_suite_rough_teacher_v2_refined_240_complete_teacher_level9_normal_seed999_tracking.png`
-- `artifacts/evaluations/plots/isolated_suite_rough_teacher_v2_refined_240_complete_teacher_level9_normal_seed999_scorecard.png`
+The current blind baseline artifacts also live there as they are produced, for example:
 
----
-
-> [!TIP]
-> Use `rough_teacher_v2_refined_240.pt` as the default teacher for Phase 2 student/adaptation work, but keep the complete stress-suite limitations visible when reporting results.
+- `artifacts/evaluations/baseline1/gait_blind_scratch_model1999_standstill.json`
+- `artifacts/evaluations/baseline1/gait_blind_scratch_model1999_forward.json`
+- `artifacts/evaluations/baseline1/isolated_suite_model_1999_blind_baseline_v1_random_rough_levelspread_normal_seed999.json`
+- `artifacts/evaluations/baseline1/isolated_suite_model_1999_blind_baseline_v1_random_rough_levelspread_normal_seed999.csv`
+- `artifacts/evaluations/baseline2/gait_blind_warmstart_model1500_standstill.json`
+- `artifacts/evaluations/baseline2/gait_blind_warmstart_model1500_forward.json`
+- `artifacts/evaluations/baseline2/isolated_suite_model_1500_blind_baseline_v1_random_rough_levelspread_normal_seed999.json`
+- `artifacts/evaluations/baseline2/isolated_suite_model_1500_blind_baseline_v1_random_rough_levelspread_normal_seed999.csv`
