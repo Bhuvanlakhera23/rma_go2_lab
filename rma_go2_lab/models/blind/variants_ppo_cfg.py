@@ -24,10 +24,10 @@ class BlindImitationAlgorithmCfg(RslRlPpoAlgorithmCfg):
     flat_expert_path: str | None = None
     flat_expert_activation: str = "elu"
     flat_imitation_command_threshold: float = 0.1
-    flat_imitation_coef_stage0: float = 0.3
-    flat_imitation_coef_stage1: float = 0.1
-    flat_imitation_stage0_end: int = 300
-    flat_imitation_stage1_end: int = 800
+    flat_imitation_coef_stage0: float = 0.1
+    flat_imitation_coef_stage1: float = 0.03
+    flat_imitation_stage0_end: int = 150
+    flat_imitation_stage1_end: int = 400
 
 
 @configclass
@@ -149,8 +149,8 @@ class Go2BlindBaselineWarmStartImitationPPORunnerCfg(RslRlOnPolicyRunnerCfg):
         flat_expert_path=FLAT_EXPERT_CKPT,
         flat_expert_activation="elu",
         flat_imitation_command_threshold=0.1,
-        flat_imitation_coef_stage0=0.3,
-        flat_imitation_coef_stage1=0.1,
-        flat_imitation_stage0_end=300,
-        flat_imitation_stage1_end=800,
+        flat_imitation_coef_stage0=0.1,
+        flat_imitation_coef_stage1=0.03,
+        flat_imitation_stage0_end=150,
+        flat_imitation_stage1_end=400,
     )

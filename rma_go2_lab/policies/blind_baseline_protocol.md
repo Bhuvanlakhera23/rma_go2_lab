@@ -78,6 +78,45 @@ Rules:
 - Avoid reward inflation and overlapping shaping unless a concrete pathology
   requires it.
 
+## Shared Training Terrain Regime
+
+All blind baselines in the current ladder are trained on the same shared rough
+terrain recipe defined in:
+
+- `rma_go2_lab/envs/blind/rough_cfg.py`
+
+This is important for later consolidated comparison. B1, B2, and B3 should be
+interpreted as being trained on the same terrain family unless a future
+explicitly versioned baseline says otherwise.
+
+Current shared training terrain regime:
+
+- base env family:
+  - `UnitreeGo2RoughEnvCfg`
+- curriculum:
+  - `terrain_levels` curriculum enabled
+  - `max_init_terrain_level = 2`
+- terrain mix edits relative to the stock rough env:
+  - `pyramid_stairs = 0.0`
+  - `pyramid_stairs_inv = 0.0`
+  - `boxes = 0.0`
+  - `random_rough = 0.2`
+  - `hf_pyramid_slope = 0.1`
+  - `hf_pyramid_slope_inv = 0.1`
+
+Interpretation:
+
+- this is a mixed rough-terrain curriculum
+- it is not a stair-specialist training recipe
+- it is not a box-obstacle training recipe
+- it is meant to support a general proprioceptive rough-locomotion comparison
+  ladder rather than an obstacle-specific benchmark
+
+When writing consolidated comparisons later, report both:
+
+- the shared training terrain regime above
+- the final achieved curriculum hardness for each frozen baseline
+
 ## Canonical Baseline-2 Intent
 
 `RMA-Go2-Blind-Baseline-Rough-WarmStart` is a general rough warm-start

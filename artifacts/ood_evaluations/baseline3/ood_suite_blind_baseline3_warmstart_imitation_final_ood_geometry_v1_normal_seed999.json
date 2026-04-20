@@ -1,0 +1,194 @@
+{
+  "status": "complete",
+  "mode": "exploratory_ood",
+  "checkpoint": "/home/bhuvan/projects/rma/rma_go2_lab/rma_go2_lab/policies/blind_baseline3_warmstart_imitation_final.pt",
+  "task": "RMA-Go2-Blind-Baseline-Rough-WarmStart-Imitation",
+  "suite": "ood_geometry_v1",
+  "scenario_count": 4,
+  "expected_scenario_count": 4,
+  "seed": 999,
+  "num_envs": 64,
+  "steps": 1000,
+  "results": [
+    {
+      "checkpoint": "/home/bhuvan/projects/rma/rma_go2_lab/rma_go2_lab/policies/blind_baseline3_warmstart_imitation_final.pt",
+      "task": "RMA-Go2-Blind-Baseline-Rough-WarmStart-Imitation",
+      "terrain_type": "pyramid_stairs_inv",
+      "terrain_level": 5,
+      "latent_mode": "normal",
+      "seed": 999,
+      "num_envs": 64,
+      "steps": 1000,
+      "overrides": {
+        "static_friction": null,
+        "dynamic_friction": null,
+        "mass_offset": null,
+        "motor_stiffness_scale": null,
+        "motor_damping_scale": null
+      },
+      "metrics": {
+        "reward_step_mean": 0.026959956094622612,
+        "vel_err_step_mean": 0.08955635614693165,
+        "yaw_err_step_mean": 0.06887254002690316,
+        "terrain_level_step_mean": 5.0,
+        "terrain_level_source": "forced",
+        "terminal_dones": 70,
+        "terminal_timeouts": 54,
+        "terminal_base_contacts": 16,
+        "timeout_fraction_of_terminals": 0.7714285714285715,
+        "base_contact_fraction_of_terminals": 0.22857142857142856,
+        "timeout_events_per_env": 0.84375,
+        "base_contact_events_per_env": 0.25
+      },
+      "constraint_checks": {
+        "observed_motor_stiffness_scale_mean": 0.9865598678588867,
+        "observed_motor_stiffness_scale_min": 0.6006205677986145,
+        "observed_motor_stiffness_scale_max": 1.3996775150299072
+      },
+      "valid_counts": {
+        "reward": 1000,
+        "vel_err": 1000,
+        "yaw_err": 1000,
+        "terrain_level": 0
+      },
+      "score": 9.06880434993335,
+      "scenario": "ood_stairs_down_l5",
+      "returncode": 0
+    },
+    {
+      "checkpoint": "/home/bhuvan/projects/rma/rma_go2_lab/rma_go2_lab/policies/blind_baseline3_warmstart_imitation_final.pt",
+      "task": "RMA-Go2-Blind-Baseline-Rough-WarmStart-Imitation",
+      "terrain_type": "random_rough",
+      "terrain_level": 9,
+      "latent_mode": "normal",
+      "seed": 999,
+      "num_envs": 64,
+      "steps": 1000,
+      "overrides": {
+        "static_friction": null,
+        "dynamic_friction": null,
+        "mass_offset": null,
+        "motor_stiffness_scale": null,
+        "motor_damping_scale": null
+      },
+      "metrics": {
+        "reward_step_mean": 0.029770938865374772,
+        "vel_err_step_mean": 0.16744541923701764,
+        "yaw_err_step_mean": 0.09995158152282238,
+        "terrain_level_step_mean": 9.0,
+        "terrain_level_source": "forced",
+        "terminal_dones": 116,
+        "terminal_timeouts": 29,
+        "terminal_base_contacts": 87,
+        "timeout_fraction_of_terminals": 0.25,
+        "base_contact_fraction_of_terminals": 0.75,
+        "timeout_events_per_env": 0.453125,
+        "base_contact_events_per_env": 1.359375
+      },
+      "constraint_checks": {
+        "observed_motor_stiffness_scale_mean": 0.9865598678588867,
+        "observed_motor_stiffness_scale_min": 0.6006205677986145,
+        "observed_motor_stiffness_scale_max": 1.3996775150299072
+      },
+      "valid_counts": {
+        "reward": 1000,
+        "vel_err": 1000,
+        "yaw_err": 1000,
+        "terrain_level": 0
+      },
+      "score": 0.3409629288897842,
+      "scenario": "ood_random_rough_l9",
+      "returncode": 0
+    },
+    {
+      "checkpoint": "/home/bhuvan/projects/rma/rma_go2_lab/rma_go2_lab/policies/blind_baseline3_warmstart_imitation_final.pt",
+      "task": "RMA-Go2-Blind-Baseline-Rough-WarmStart-Imitation",
+      "terrain_type": "boxes",
+      "terrain_level": 5,
+      "latent_mode": "normal",
+      "seed": 999,
+      "num_envs": 64,
+      "steps": 1000,
+      "overrides": {
+        "static_friction": null,
+        "dynamic_friction": null,
+        "mass_offset": null,
+        "motor_stiffness_scale": null,
+        "motor_damping_scale": null
+      },
+      "metrics": {
+        "reward_step_mean": 0.02902590367384255,
+        "vel_err_step_mean": 0.1322716953754425,
+        "yaw_err_step_mean": 0.07884510555118322,
+        "terrain_level_step_mean": 5.0,
+        "terrain_level_source": "forced",
+        "terminal_dones": 119,
+        "terminal_timeouts": 22,
+        "terminal_base_contacts": 97,
+        "timeout_fraction_of_terminals": 0.18487394957983194,
+        "base_contact_fraction_of_terminals": 0.8151260504201681,
+        "timeout_events_per_env": 0.34375,
+        "base_contact_events_per_env": 1.515625
+      },
+      "constraint_checks": {
+        "observed_motor_stiffness_scale_mean": 0.996788501739502,
+        "observed_motor_stiffness_scale_min": 0.6000929474830627,
+        "observed_motor_stiffness_scale_max": 1.3992375135421753
+      },
+      "valid_counts": {
+        "reward": 1000,
+        "vel_err": 1000,
+        "yaw_err": 1000,
+        "terrain_level": 0
+      },
+      "score": -7.37182642207891,
+      "scenario": "ood_boxes_l5",
+      "returncode": 0
+    },
+    {
+      "checkpoint": "/home/bhuvan/projects/rma/rma_go2_lab/rma_go2_lab/policies/blind_baseline3_warmstart_imitation_final.pt",
+      "task": "RMA-Go2-Blind-Baseline-Rough-WarmStart-Imitation",
+      "terrain_type": "pyramid_stairs",
+      "terrain_level": 5,
+      "latent_mode": "normal",
+      "seed": 999,
+      "num_envs": 64,
+      "steps": 1000,
+      "overrides": {
+        "static_friction": null,
+        "dynamic_friction": null,
+        "mass_offset": null,
+        "motor_stiffness_scale": null,
+        "motor_damping_scale": null
+      },
+      "metrics": {
+        "reward_step_mean": 0.03226535683311522,
+        "vel_err_step_mean": 0.07571648244000971,
+        "yaw_err_step_mean": 0.057276562159880993,
+        "terrain_level_step_mean": 5.0,
+        "terrain_level_source": "forced",
+        "terminal_dones": 174,
+        "terminal_timeouts": 8,
+        "terminal_base_contacts": 166,
+        "timeout_fraction_of_terminals": 0.04597701149425287,
+        "base_contact_fraction_of_terminals": 0.9540229885057471,
+        "timeout_events_per_env": 0.125,
+        "base_contact_events_per_env": 2.59375
+      },
+      "constraint_checks": {
+        "observed_motor_stiffness_scale_mean": 0.9865598678588867,
+        "observed_motor_stiffness_scale_min": 0.6006205677986145,
+        "observed_motor_stiffness_scale_max": 1.3996775150299072
+      },
+      "valid_counts": {
+        "reward": 1000,
+        "vel_err": 1000,
+        "yaw_err": 1000,
+        "terrain_level": 0
+      },
+      "score": -18.605055598415017,
+      "scenario": "ood_stairs_up_l5",
+      "returncode": 0
+    }
+  ]
+}

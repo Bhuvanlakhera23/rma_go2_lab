@@ -29,9 +29,11 @@ The core scientific question for the active repo state is:
 Selected flat prior:
 
 - `rma_go2_lab/policies/flat1499.pt`
+  - canonical lineage corrected to the non-normalized
+    `2026-04-17_14-14-36/model_1499.pt` run
 - sanity reports:
-  - `artifacts/evaluations/flat_prior/gait_flat_prior_model1500_standstill.json`
-  - `artifacts/evaluations/flat_prior/gait_flat_prior_model1500_forward.json`
+  - `artifacts/evaluations/flat_prior/gait_flat_prior_model1499_standstill.json`
+  - `artifacts/evaluations/flat_prior/gait_flat_prior_model1499_forward.json`
 
 ### Blind baselines
 
@@ -51,6 +53,10 @@ Current frozen Baseline 1 checkpoint:
 Current frozen Baseline 2 checkpoint:
 
 - `rma_go2_lab/policies/blind_baseline2_warmstart_final.pt`
+
+Current frozen Baseline 3 checkpoint:
+
+- `rma_go2_lab/policies/blind_baseline3_warmstart_imitation_final.pt`
 
 ## Governing Principle For Blind Baselines
 
@@ -170,7 +176,13 @@ Reward is for training. Degradation under mismatch is the research result.
 2. `rma_go2_lab/policies/blind_baseline_protocol.md`
 3. `rma_go2_lab/policies/README.md`
 4. `artifacts/evaluations/README.md`
-5. task-specific env / PPO config files
+5. `docs/BASELINE_COMPARISON_FINAL.md`
+6. `docs/FROZEN_BASELINE_SYNTHESIS.md`
+7. `docs/FROZEN_BASELINE_RESULTS_AT_A_GLANCE.md`
+8. `docs/BASELINE_REGIME_CLOSED.md`
+9. `docs/OOD_PROBE_PROTOCOL.md`
+10. `docs/OOD_FINDINGS_B1_B2_B3.md`
+11. task-specific env / PPO config files
 
 ## What Not To Do
 

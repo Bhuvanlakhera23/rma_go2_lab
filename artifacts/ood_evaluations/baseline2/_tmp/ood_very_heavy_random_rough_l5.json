@@ -1,0 +1,43 @@
+{
+  "checkpoint": "/home/bhuvan/projects/rma/rma_go2_lab/rma_go2_lab/policies/blind_baseline2_warmstart_final.pt",
+  "task": "RMA-Go2-Blind-Baseline-Rough-WarmStart",
+  "terrain_type": "random_rough",
+  "terrain_level": 5,
+  "latent_mode": "normal",
+  "seed": 999,
+  "num_envs": 64,
+  "steps": 1000,
+  "overrides": {
+    "static_friction": null,
+    "dynamic_friction": null,
+    "mass_offset": 6.0,
+    "motor_stiffness_scale": null,
+    "motor_damping_scale": null
+  },
+  "metrics": {
+    "reward_step_mean": 0.02532743499567732,
+    "vel_err_step_mean": 0.10083653212711215,
+    "yaw_err_step_mean": 0.06279325696080923,
+    "terrain_level_step_mean": 5.0,
+    "terrain_level_source": "forced",
+    "terminal_dones": 255,
+    "terminal_timeouts": 8,
+    "terminal_base_contacts": 247,
+    "timeout_fraction_of_terminals": 0.03137254901960784,
+    "base_contact_fraction_of_terminals": 0.9686274509803922,
+    "timeout_events_per_env": 0.125,
+    "base_contact_events_per_env": 3.859375
+  },
+  "constraint_checks": {
+    "observed_motor_stiffness_scale_mean": 0.9865598678588867,
+    "observed_motor_stiffness_scale_min": 0.6006205677986145,
+    "observed_motor_stiffness_scale_max": 1.3996775150299072
+  },
+  "valid_counts": {
+    "reward": 1000,
+    "vel_err": 1000,
+    "yaw_err": 1000,
+    "terrain_level": 0
+  },
+  "score": -31.528741479099207
+}

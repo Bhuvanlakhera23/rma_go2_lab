@@ -8,7 +8,7 @@ import rsl_rl.runners.on_policy_runner as _rsl_on_policy_runner
 _rsl_on_policy_runner.WarmStartActorCritic = WarmStartActorCritic
 _rsl_on_policy_runner.BlindPPOWithFlatExpert = BlindPPOWithFlatExpert
 
-#Teacher Flat
+#Flat Expert
 gym.register(
     id="RMA-Go2-Flat",
     entry_point="isaaclab.envs:ManagerBasedRLEnv",
@@ -21,8 +21,7 @@ gym.register(
     },
 )
 
-# Active pipeline only:
-# flat prior plus the three blind baseline variants.
+# Scratch Rough Terrain Locomotion + Warm Start + Imitation Learning
 gym.register(
     id="RMA-Go2-Blind-Baseline-Rough",
     entry_point="isaaclab.envs:ManagerBasedRLEnv",

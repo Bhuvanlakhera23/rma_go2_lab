@@ -38,6 +38,20 @@ parser.add_argument("--dynamic-friction", type=float, default=None)
 parser.add_argument("--mass-offset", type=float, default=None)
 parser.add_argument("--motor-stiffness-scale", type=float, default=None)
 parser.add_argument("--motor-damping-scale", type=float, default=None)
+parser.add_argument("--push-interval-min-s", type=float, default=None)
+parser.add_argument("--push-interval-max-s", type=float, default=None)
+parser.add_argument("--push-x-range", type=str, default=None, help="Comma-separated min,max for push velocity along x.")
+parser.add_argument("--push-y-range", type=str, default=None, help="Comma-separated min,max for push velocity along y.")
+parser.add_argument("--push-z-range", type=str, default=None, help="Comma-separated min,max for push velocity along z.")
+parser.add_argument("--push-roll-range", type=str, default=None, help="Comma-separated min,max for push angular velocity around roll.")
+parser.add_argument("--push-pitch-range", type=str, default=None, help="Comma-separated min,max for push angular velocity around pitch.")
+parser.add_argument("--push-yaw-range", type=str, default=None, help="Comma-separated min,max for push angular velocity around yaw.")
+parser.add_argument("--switch-step", type=int, default=None, help="Optional step index at which to apply a one-shot mid-episode switch.")
+parser.add_argument("--switch-static-friction", type=float, default=None)
+parser.add_argument("--switch-dynamic-friction", type=float, default=None)
+parser.add_argument("--switch-mass-offset", type=float, default=None)
+parser.add_argument("--switch-motor-stiffness-scale", type=float, default=None)
+parser.add_argument("--switch-motor-damping-scale", type=float, default=None)
 
 AppLauncher.add_app_launcher_args(parser)
 args_cli = parser.parse_args()
@@ -50,8 +64,11 @@ import numpy as np
 import torch
 from rsl_rl.runners import OnPolicyRunner
 
+import isaaclab.utils.math as math_utils
 from isaaclab_rl.rsl_rl import RslRlVecEnvWrapper
+from isaaclab.managers import EventTermCfg
 from isaaclab_tasks.utils.parse_cfg import load_cfg_from_registry
+import isaaclab_tasks.manager_based.locomotion.velocity.mdp as velocity_mdp
 import isaaclab_tasks  # noqa: F401
 import rma_go2_lab  # noqa: F401
 
@@ -116,6 +133,123 @@ def _apply_randomization_overrides(env_cfg) -> None:
         )
 
 
+def _parse_range(spec: str | None) -> tuple[float, float] | None:
+    if spec is None:
+        return None
+    lower, upper = [part.strip() for part in spec.split(",", maxsplit=1)]
+    return (float(lower), float(upper))
+
+
+def _apply_push_overrides(env_cfg) -> None:
+    push_ranges = {
+        "x": _parse_range(args_cli.push_x_range),
+        "y": _parse_range(args_cli.push_y_range),
+        "z": _parse_range(args_cli.push_z_range),
+        "roll": _parse_range(args_cli.push_roll_range),
+        "pitch": _parse_range(args_cli.push_pitch_range),
+        "yaw": _parse_range(args_cli.push_yaw_range),
+    }
+    push_ranges = {axis: value for axis, value in push_ranges.items() if value is not None}
+
+    interval_min = args_cli.push_interval_min_s
+    interval_max = args_cli.push_interval_max_s
+    if not push_ranges and interval_min is None and interval_max is None:
+        return
+    if not push_ranges:
+        raise ValueError("Push interval override requires at least one push axis range.")
+    if interval_min is None or interval_max is None:
+        raise ValueError("Push overrides require both --push-interval-min-s and --push-interval-max-s.")
+
+    env_cfg.events.push_robot = EventTermCfg(
+        func=velocity_mdp.push_by_setting_velocity,
+        mode="interval",
+        interval_range_s=(interval_min, interval_max),
+        params={"velocity_range": push_ranges},
+    )
+
+
+def _has_switch_overrides() -> bool:
+    return any(
+        value is not None
+        for value in (
+            args_cli.switch_static_friction,
+            args_cli.switch_dynamic_friction,
+            args_cli.switch_mass_offset,
+            args_cli.switch_motor_stiffness_scale,
+            args_cli.switch_motor_damping_scale,
+        )
+    )
+
+
+def _trigger_event_term(env, term_name: str, param_overrides: dict) -> None:
+    term_cfg = env.unwrapped.event_manager.get_term_cfg(term_name)
+    params = dict(term_cfg.params)
+    params.update(param_overrides)
+    term_cfg.func(env.unwrapped, None, **params)
+
+
+def _resample_material_buckets(term_cfg, static_range: tuple[float, float], dynamic_range: tuple[float, float]) -> None:
+    term = term_cfg.func
+    if not hasattr(term, "material_buckets"):
+        return
+    restitution_range = term_cfg.params.get("restitution_range", (0.0, 0.0))
+    num_buckets = int(term_cfg.params.get("num_buckets", 1))
+    ranges = torch.tensor(
+        [static_range, dynamic_range, restitution_range],
+        device="cpu",
+        dtype=torch.float32,
+    )
+    term.material_buckets = math_utils.sample_uniform(ranges[:, 0], ranges[:, 1], (num_buckets, 3), device="cpu")
+    if term_cfg.params.get("make_consistent", False):
+        term.material_buckets[:, 1] = torch.min(term.material_buckets[:, 0], term.material_buckets[:, 1])
+
+
+def _apply_switch_overrides(env) -> None:
+    if args_cli.switch_static_friction is not None or args_cli.switch_dynamic_friction is not None:
+        param_overrides = {}
+        static_range = term_dynamic_range = None
+        if args_cli.switch_static_friction is not None:
+            static_range = (
+                args_cli.switch_static_friction,
+                args_cli.switch_static_friction,
+            )
+            param_overrides["static_friction_range"] = static_range
+        if args_cli.switch_dynamic_friction is not None:
+            term_dynamic_range = (
+                args_cli.switch_dynamic_friction,
+                args_cli.switch_dynamic_friction,
+            )
+            param_overrides["dynamic_friction_range"] = term_dynamic_range
+        term_cfg = env.unwrapped.event_manager.get_term_cfg("physics_material")
+        if static_range is None:
+            static_range = term_cfg.params["static_friction_range"]
+        if term_dynamic_range is None:
+            term_dynamic_range = term_cfg.params["dynamic_friction_range"]
+        _resample_material_buckets(term_cfg, static_range, term_dynamic_range)
+        _trigger_event_term(env, "physics_material", param_overrides)
+
+    if args_cli.switch_mass_offset is not None:
+        _trigger_event_term(
+            env,
+            "add_base_mass",
+            {"mass_distribution_params": (args_cli.switch_mass_offset, args_cli.switch_mass_offset)},
+        )
+
+    if args_cli.switch_motor_stiffness_scale is not None or args_cli.switch_motor_damping_scale is not None:
+        param_overrides = {}
+        if args_cli.switch_motor_stiffness_scale is not None:
+            param_overrides["stiffness_distribution_params"] = (
+                args_cli.switch_motor_stiffness_scale,
+                args_cli.switch_motor_stiffness_scale,
+            )
+        if args_cli.switch_motor_damping_scale is not None:
+            param_overrides["damping_distribution_params"] = (
+                args_cli.switch_motor_damping_scale,
+                args_cli.switch_motor_damping_scale,
+            )
+        _trigger_event_term(env, "motor_strength", param_overrides)
+
+
 def _mean(values: list[float]) -> float:
     return float(np.mean(values)) if values else 0.0
 
@@ -169,23 +303,98 @@ def _collect_constraint_checks(env) -> dict[str, float]:
     """Read back applied randomization values to catch no-op override bugs."""
     checks: dict[str, float] = {}
     event_manager = env.unwrapped.event_manager
-
-    if "physics_material" in event_manager.active_terms:
-        term = event_manager.get_term("physics_material")
-        _add_stats("observed_static_friction", getattr(term, "static_friction", None), checks)
-        _add_stats("observed_dynamic_friction", getattr(term, "dynamic_friction", None), checks)
-
-    if "add_base_mass" in event_manager.active_terms:
-        term = event_manager.get_term("add_base_mass")
-        _add_stats("observed_mass_offset", getattr(term, "mass_offset", None), checks)
+    robot = env.unwrapped.scene["robot"]
 
     try:
-        actuator = env.unwrapped.scene["robot"].actuators["base_legs"]
+        material_cfg = event_manager.get_term_cfg("physics_material")
+        materials = robot.root_physx_view.get_material_properties()
+        if material_cfg.params["asset_cfg"].body_ids != slice(None):
+            body_ids = material_cfg.params["asset_cfg"].body_ids
+            material_values = materials[:, body_ids]
+        else:
+            material_values = materials
+        _add_stats("observed_static_friction", material_values[..., 0], checks)
+        _add_stats("observed_dynamic_friction", material_values[..., 1], checks)
+    except Exception:
+        pass
+
+    try:
+        mass_cfg = event_manager.get_term_cfg("add_base_mass")
+        masses = robot.root_physx_view.get_masses().float()
+        body_ids = mass_cfg.params["asset_cfg"].body_ids
+        if body_ids == slice(None):
+            body_indices = torch.arange(robot.num_bodies, device=masses.device)
+        else:
+            body_indices = torch.as_tensor(body_ids, device=masses.device, dtype=torch.long)
+        mass_offset = masses[:, body_indices] - robot.data.default_mass[:, body_indices].float()
+        _add_stats("observed_mass_offset", mass_offset, checks)
+    except Exception:
+        pass
+
+    try:
+        actuator = robot.actuators["base_legs"]
         _add_stats("observed_motor_stiffness_scale", actuator.stiffness / 25.0, checks)
     except Exception:
         pass
 
+    try:
+        push_cfg = event_manager.get_term_cfg("push_robot")
+        push_interval = getattr(push_cfg, "interval_range_s", None)
+        if push_interval is not None:
+            checks["observed_push_interval_min_s"] = float(push_interval[0])
+            checks["observed_push_interval_max_s"] = float(push_interval[1])
+    except Exception:
+        pass
+
     return checks
+
+
+def _empty_phase_stats() -> dict[str, object]:
+    return {
+        "reward": [],
+        "vel_err": [],
+        "yaw_err": [],
+        "terrain_level": [],
+        "valid_counts": {
+            "reward": 0,
+            "vel_err": 0,
+            "yaw_err": 0,
+            "terrain_level": 0,
+        },
+        "total_dones": 0,
+        "total_timeouts": 0,
+        "total_base_contacts": 0,
+    }
+
+
+def _phase_metrics(phase_stats: dict[str, object], forced_terrain_level: int | None) -> dict[str, float | None | str]:
+    valid_counts = phase_stats["valid_counts"]
+    terrain_level_mean = _mean(phase_stats["terrain_level"])
+    terrain_level_source = "logged"
+    if valid_counts["terrain_level"] == 0 and forced_terrain_level is not None and forced_terrain_level >= 0:
+        terrain_level_mean = float(forced_terrain_level)
+        terrain_level_source = "forced"
+
+    total_dones = phase_stats["total_dones"]
+    total_timeouts = phase_stats["total_timeouts"]
+    total_base_contacts = phase_stats["total_base_contacts"]
+    timeout_fraction = (total_timeouts / total_dones) if total_dones > 0 else None
+    base_contact_fraction = (total_base_contacts / total_dones) if total_dones > 0 else None
+
+    return {
+        "reward_step_mean": _mean(phase_stats["reward"]),
+        "vel_err_step_mean": _mean(phase_stats["vel_err"]),
+        "yaw_err_step_mean": _mean(phase_stats["yaw_err"]),
+        "terrain_level_step_mean": terrain_level_mean,
+        "terrain_level_source": terrain_level_source,
+        "terminal_dones": total_dones,
+        "terminal_timeouts": total_timeouts,
+        "terminal_base_contacts": total_base_contacts,
+        "timeout_fraction_of_terminals": timeout_fraction,
+        "base_contact_fraction_of_terminals": base_contact_fraction,
+        "timeout_events_per_env": total_timeouts / max(args_cli.num_envs, 1),
+        "base_contact_events_per_env": total_base_contacts / max(args_cli.num_envs, 1),
+    }
 
 
 def main() -> None:
@@ -195,6 +404,7 @@ def main() -> None:
     _force_isolated_terrain(env_cfg, args_cli.terrain_type)
     _disable_terrain_curriculum_for_fixed_level(env_cfg, args_cli.terrain_level)
     _apply_randomization_overrides(env_cfg)
+    _apply_push_overrides(env_cfg)
 
     env = gym.make(args_cli.task, cfg=env_cfg)
     env = RslRlVecEnvWrapper(env, clip_actions=1.0)
@@ -215,34 +425,36 @@ def main() -> None:
     _force_terrain_level(env, args_cli.terrain_level)
     obs = env.get_observations()
     constraint_checks = _collect_constraint_checks(env)
-    reward_list: list[float] = []
-    vel_err_list: list[float] = []
-    yaw_err_list: list[float] = []
-    terrain_level_list: list[float] = []
-    total_dones = 0
-    total_timeouts = 0
-    total_base_contacts = 0
-    valid_counts = {
-        "reward": 0,
-        "vel_err": 0,
-        "yaw_err": 0,
-        "terrain_level": 0,
-    }
+    switch_step = args_cli.switch_step if args_cli.switch_step is not None and args_cli.switch_step >= 0 else None
+    switch_applied = False
+    post_switch_constraint_checks: dict[str, float] | None = None
+    overall_stats = _empty_phase_stats()
+    pre_switch_stats = _empty_phase_stats()
+    post_switch_stats = _empty_phase_stats()
 
     with torch.no_grad():
-        for _ in range(args_cli.steps):
+        for step_idx in range(args_cli.steps):
+            if not switch_applied and switch_step is not None and step_idx == switch_step and _has_switch_overrides():
+                _apply_switch_overrides(env)
+                switch_applied = True
+                post_switch_constraint_checks = _collect_constraint_checks(env)
+
             actions = runner.alg.policy.act_inference(obs)
             obs, rewards, dones, infos = env.step(actions)
-            reward_list.append(_to_float(rewards))
-            valid_counts["reward"] += 1
+
+            phase_stats = post_switch_stats if switch_applied else pre_switch_stats
+            for stats in (overall_stats, phase_stats):
+                stats["reward"].append(_to_float(rewards))
+                stats["valid_counts"]["reward"] += 1
 
             timeouts = infos.get("time_outs", None) if isinstance(infos, dict) else None
             done_count = int(dones.sum().item()) if isinstance(dones, torch.Tensor) else int(np.sum(dones))
             timeout_count = int(timeouts.sum().item()) if isinstance(timeouts, torch.Tensor) else 0
             base_contact_count = max(done_count - timeout_count, 0)
-            total_dones += done_count
-            total_timeouts += timeout_count
-            total_base_contacts += base_contact_count
+            for stats in (overall_stats, phase_stats):
+                stats["total_dones"] += done_count
+                stats["total_timeouts"] += timeout_count
+                stats["total_base_contacts"] += base_contact_count
 
             logs = infos.get("log", {}) if isinstance(infos, dict) else {}
             metrics = infos.get("metrics", {}) if isinstance(infos, dict) else {}
@@ -251,31 +463,27 @@ def main() -> None:
             if vel_err is None:
                 vel_err = _extract_optional_float(logs, "Metrics/base_velocity/error_vel_xy")
             if vel_err is not None:
-                vel_err_list.append(vel_err)
-                valid_counts["vel_err"] += 1
+                for stats in (overall_stats, phase_stats):
+                    stats["vel_err"].append(vel_err)
+                    stats["valid_counts"]["vel_err"] += 1
 
             yaw_err = _extract_optional_float(metrics, "base_velocity/error_vel_yaw")
             if yaw_err is None:
                 yaw_err = _extract_optional_float(logs, "Metrics/base_velocity/error_vel_yaw")
             if yaw_err is not None:
-                yaw_err_list.append(yaw_err)
-                valid_counts["yaw_err"] += 1
+                for stats in (overall_stats, phase_stats):
+                    stats["yaw_err"].append(yaw_err)
+                    stats["valid_counts"]["yaw_err"] += 1
 
             terrain_level = _extract_optional_float(logs, "Curriculum/terrain_levels")
             if terrain_level is not None:
-                terrain_level_list.append(terrain_level)
-                valid_counts["terrain_level"] += 1
+                for stats in (overall_stats, phase_stats):
+                    stats["terrain_level"].append(terrain_level)
+                    stats["valid_counts"]["terrain_level"] += 1
 
-    terrain_level_mean = _mean(terrain_level_list)
-    terrain_level_source = "logged"
-    if valid_counts["terrain_level"] == 0 and args_cli.terrain_level is not None and args_cli.terrain_level >= 0:
-        terrain_level_mean = float(args_cli.terrain_level)
-        terrain_level_source = "forced"
-
-    timeout_fraction = (total_timeouts / total_dones) if total_dones > 0 else None
-    base_contact_fraction = (total_base_contacts / total_dones) if total_dones > 0 else None
-    base_contact_events_per_env = total_base_contacts / max(args_cli.num_envs, 1)
-    timeout_events_per_env = total_timeouts / max(args_cli.num_envs, 1)
+    overall_metrics = _phase_metrics(overall_stats, args_cli.terrain_level)
+    pre_switch_metrics = _phase_metrics(pre_switch_stats, args_cli.terrain_level)
+    post_switch_metrics = _phase_metrics(post_switch_stats, args_cli.terrain_level)
 
     result = {
         "checkpoint": args_cli.checkpoint,
@@ -292,26 +500,40 @@ def main() -> None:
             "mass_offset": args_cli.mass_offset,
             "motor_stiffness_scale": args_cli.motor_stiffness_scale,
             "motor_damping_scale": args_cli.motor_damping_scale,
+            "switch_step": args_cli.switch_step,
+            "switch_static_friction": args_cli.switch_static_friction,
+            "switch_dynamic_friction": args_cli.switch_dynamic_friction,
+            "switch_mass_offset": args_cli.switch_mass_offset,
+            "switch_motor_stiffness_scale": args_cli.switch_motor_stiffness_scale,
+            "switch_motor_damping_scale": args_cli.switch_motor_damping_scale,
+            "push_interval_min_s": args_cli.push_interval_min_s,
+            "push_interval_max_s": args_cli.push_interval_max_s,
+            "push_x_min": None if _parse_range(args_cli.push_x_range) is None else _parse_range(args_cli.push_x_range)[0],
+            "push_x_max": None if _parse_range(args_cli.push_x_range) is None else _parse_range(args_cli.push_x_range)[1],
+            "push_y_min": None if _parse_range(args_cli.push_y_range) is None else _parse_range(args_cli.push_y_range)[0],
+            "push_y_max": None if _parse_range(args_cli.push_y_range) is None else _parse_range(args_cli.push_y_range)[1],
+            "push_z_min": None if _parse_range(args_cli.push_z_range) is None else _parse_range(args_cli.push_z_range)[0],
+            "push_z_max": None if _parse_range(args_cli.push_z_range) is None else _parse_range(args_cli.push_z_range)[1],
+            "push_roll_min": None if _parse_range(args_cli.push_roll_range) is None else _parse_range(args_cli.push_roll_range)[0],
+            "push_roll_max": None if _parse_range(args_cli.push_roll_range) is None else _parse_range(args_cli.push_roll_range)[1],
+            "push_pitch_min": None if _parse_range(args_cli.push_pitch_range) is None else _parse_range(args_cli.push_pitch_range)[0],
+            "push_pitch_max": None if _parse_range(args_cli.push_pitch_range) is None else _parse_range(args_cli.push_pitch_range)[1],
+            "push_yaw_min": None if _parse_range(args_cli.push_yaw_range) is None else _parse_range(args_cli.push_yaw_range)[0],
+            "push_yaw_max": None if _parse_range(args_cli.push_yaw_range) is None else _parse_range(args_cli.push_yaw_range)[1],
         },
-        "metrics": {
-            "reward_step_mean": _mean(reward_list),
-            "vel_err_step_mean": _mean(vel_err_list),
-            "yaw_err_step_mean": _mean(yaw_err_list),
-            "terrain_level_step_mean": terrain_level_mean,
-            "terrain_level_source": terrain_level_source,
-            "terminal_dones": total_dones,
-            "terminal_timeouts": total_timeouts,
-            "terminal_base_contacts": total_base_contacts,
-            "timeout_fraction_of_terminals": timeout_fraction,
-            "base_contact_fraction_of_terminals": base_contact_fraction,
-            "timeout_events_per_env": timeout_events_per_env,
-            "base_contact_events_per_env": base_contact_events_per_env,
-        },
+        "metrics": overall_metrics,
+        "pre_switch_metrics": pre_switch_metrics,
+        "post_switch_metrics": post_switch_metrics,
         "constraint_checks": constraint_checks,
-        "valid_counts": valid_counts,
+        "post_switch_constraint_checks": post_switch_constraint_checks,
+        "valid_counts": overall_stats["valid_counts"],
+        "pre_switch_valid_counts": pre_switch_stats["valid_counts"],
+        "post_switch_valid_counts": post_switch_stats["valid_counts"],
+        "switch_applied": switch_applied,
+        "switch_applied_step": switch_step if switch_applied else None,
     }
 
-    m = result["metrics"]
+    m = result["post_switch_metrics"] if switch_applied and post_switch_stats["valid_counts"]["reward"] > 0 else result["metrics"]
     score = (
         3.0 * m["reward_step_mean"]
         + 1.5 * m["terrain_level_step_mean"]

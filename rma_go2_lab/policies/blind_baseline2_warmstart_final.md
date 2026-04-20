@@ -54,6 +54,21 @@ Final stabilization changes retained in this frozen version:
   - `flat_orientation_l2 = -1.0`
   - `ang_vel_xy_l2 = -0.075`
 
+Shared training terrain regime retained in this frozen version:
+
+- mixed rough-terrain curriculum from `rma_go2_lab/envs/blind/rough_cfg.py`
+- `terrain_levels` curriculum enabled
+- `max_init_terrain_level = 2`
+- stair-focused sub-terrains disabled:
+  - `pyramid_stairs = 0.0`
+  - `pyramid_stairs_inv = 0.0`
+- box obstacles disabled:
+  - `boxes = 0.0`
+- retained rough-terrain families include:
+  - `random_rough = 0.2`
+  - `hf_pyramid_slope = 0.1`
+  - `hf_pyramid_slope_inv = 0.1`
+
 ## Selection Rationale
 
 `model_1500.pt` was selected because:
@@ -84,6 +99,10 @@ Training-side final regime near freeze:
 - tracking error:
   - `error_vel_xy = 0.1275`
   - `error_vel_yaw = 0.1930`
+- training terrain regime:
+  - shared mixed rough curriculum from `rough_cfg.py`
+- curriculum hardness:
+  - final `Curriculum/terrain_levels = 4.7843`
 - terminations:
   - `time_out = 0.8242`
   - `base_contact = 0.0000`
@@ -122,6 +141,8 @@ Persistent pattern:
 
 - most non-timeout failures still appear as base-contact failures
 - rough forward locomotion remains awkward rather than cleanly trotting
+- the run reached a slightly higher final mean terrain curriculum level than the
+  scratch baseline
 - the main training-side bottleneck remains body-height / clearance loss
 
 In the `blind_baseline_v1` suite, the strongest degradation appears under:

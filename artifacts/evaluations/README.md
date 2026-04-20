@@ -104,8 +104,8 @@ sanity record as a reusable locomotion prior.
 
 Canonical reports:
 
-- `artifacts/evaluations/flat_prior/gait_flat_prior_model1500_standstill.json`
-- `artifacts/evaluations/flat_prior/gait_flat_prior_model1500_forward.json`
+- `artifacts/evaluations/flat_prior/gait_flat_prior_model1499_standstill.json`
+- `artifacts/evaluations/flat_prior/gait_flat_prior_model1499_forward.json`
 
 Treat older auto-named flat gait files as stale unless they are explicitly
 referenced by a manifest.

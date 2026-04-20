@@ -50,6 +50,21 @@ Frozen characteristics retained in this version:
 - `desired_kl = 0.01`
 - no flat-prior warm-start
 
+Shared training terrain regime retained in this frozen version:
+
+- mixed rough-terrain curriculum from `rma_go2_lab/envs/blind/rough_cfg.py`
+- `terrain_levels` curriculum enabled
+- `max_init_terrain_level = 2`
+- stair-focused sub-terrains disabled:
+  - `pyramid_stairs = 0.0`
+  - `pyramid_stairs_inv = 0.0`
+- box obstacles disabled:
+  - `boxes = 0.0`
+- retained rough-terrain families include:
+  - `random_rough = 0.2`
+  - `hf_pyramid_slope = 0.1`
+  - `hf_pyramid_slope_inv = 0.1`
+
 ## Selection Rationale
 
 `model_1999.pt` was selected because:
@@ -90,6 +105,10 @@ Training-side final regime near freeze:
 - tracking error:
   - `error_vel_xy = 0.1380`
   - `error_vel_yaw = 0.2262`
+- training terrain regime:
+  - shared mixed rough curriculum from `rough_cfg.py`
+- curriculum hardness:
+  - final `Curriculum/terrain_levels = 4.5541`
 - terminations:
   - `time_out = 0.8160`
   - `base_contact = 0.0000`
@@ -139,6 +158,8 @@ Persistent pattern:
 - locomotion is functional but behaviorally coarse
 - forward motion remains bound-prone rather than diagonal-trot-like
 - forward eval terminations are fully base-contact dominated
+- the run climbed into mid-to-high rough curriculum, but did not reach the same
+  final mean terrain level as the warm-start baseline
 - mismatch degradation remains sharp under low friction, weak motors, and heavy
   mass
 

@@ -1,0 +1,57 @@
+{
+  "checkpoint": "/home/bhuvan/projects/rma/rma_go2_lab/rma_go2_lab/policies/blind_baseline1_scratch_final.pt",
+  "task": "RMA-Go2-Blind-Baseline-Rough",
+  "terrain_type": "random_rough",
+  "terrain_level": 5,
+  "latent_mode": "normal",
+  "seed": 999,
+  "num_envs": 64,
+  "steps": 1000,
+  "overrides": {
+    "static_friction": null,
+    "dynamic_friction": null,
+    "mass_offset": null,
+    "motor_stiffness_scale": null,
+    "motor_damping_scale": null,
+    "push_interval_min_s": 2.5,
+    "push_interval_max_s": 2.5,
+    "push_x_min": null,
+    "push_x_max": null,
+    "push_y_min": null,
+    "push_y_max": null,
+    "push_z_min": null,
+    "push_z_max": null,
+    "push_roll_min": null,
+    "push_roll_max": null,
+    "push_pitch_min": null,
+    "push_pitch_max": null,
+    "push_yaw_min": -0.8,
+    "push_yaw_max": 0.8
+  },
+  "metrics": {
+    "reward_step_mean": 0.027524010638706384,
+    "vel_err_step_mean": 0.15566925349086522,
+    "yaw_err_step_mean": 0.08660760681703687,
+    "terrain_level_step_mean": 5.0,
+    "terrain_level_source": "forced",
+    "terminal_dones": 99,
+    "terminal_timeouts": 23,
+    "terminal_base_contacts": 76,
+    "timeout_fraction_of_terminals": 0.23232323232323232,
+    "base_contact_fraction_of_terminals": 0.7676767676767676,
+    "timeout_events_per_env": 0.359375,
+    "base_contact_events_per_env": 1.1875
+  },
+  "constraint_checks": {
+    "observed_motor_stiffness_scale_mean": 1.0150177478790283,
+    "observed_motor_stiffness_scale_min": 0.6010453701019287,
+    "observed_motor_stiffness_scale_max": 1.3983347415924072
+  },
+  "valid_counts": {
+    "reward": 1000,
+    "vel_err": 1000,
+    "yaw_err": 1000,
+    "terrain_level": 0
+  },
+  "score": -3.9624155053152337
+}

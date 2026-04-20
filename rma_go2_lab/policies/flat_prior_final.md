@@ -11,7 +11,7 @@ flat prior is trained, it should be versioned explicitly.
 - canonical name: `flat1499`
 - checkpoint: `rma_go2_lab/policies/flat1499.pt`
 - source run:
-  - `/home/bhuvan/tools/IsaacLab/logs/rsl_rl/go2_rma_flat/2026-04-17_14-40-21`
+  - `/home/bhuvan/tools/IsaacLab/logs/rsl_rl/go2_rma_flat/2026-04-17_14-14-36`
 - selected source checkpoint:
   - `model_1499.pt`
 
@@ -45,9 +45,17 @@ Frozen characteristics retained in this version:
 - no explicit base-height shaping
 - `feet_air_time = 0.3`
 
+Lineage correction:
+
+- restored IsaacLab run logs showed the previously archived `2026-04-17_14-40-21`
+  checkpoint belonged to the normalized flat branch
+- the intended canonical flat prior for this repo state is the non-normalized
+  `2026-04-17_14-14-36/model_1499.pt` run
+- `rma_go2_lab/policies/flat1499.pt` has been corrected to match that run
+
 ## Selection Rationale
 
-`model_1499.pt` from the `2026-04-17_14-40-21` run was selected because:
+`model_1499.pt` from the `2026-04-17_14-14-36` run was selected because:
 
 - training stayed numerically stable to the end of the run
 - standstill behavior remained quiet and stable
@@ -55,16 +63,25 @@ Frozen characteristics retained in this version:
 - it clearly beat the sandbox variant behaviorally even when the sandbox looked
   slightly cleaner on scalar metrics
 
-This freeze also closes the normalization branch for the flat prior family:
-keeping observation normalization enabled changed the emergent gait in an
-undesirable way for this prior.
+This freeze closes the normalization branch for the flat prior family:
+
+- keeping observation normalization enabled changed the emergent gait in an
+  undesirable way for this prior
+- the normalized `2026-04-17_14-40-21` run is not the canonical flat prior
 
 ## Final Evaluation Artifacts
 
 Controller-quality sanity checks:
 
-- `artifacts/evaluations/flat_prior/gait_flat_prior_model1500_standstill.json`
-- `artifacts/evaluations/flat_prior/gait_flat_prior_model1500_forward.json`
+- `artifacts/evaluations/flat_prior/gait_flat_prior_model1499_standstill.json`
+- `artifacts/evaluations/flat_prior/gait_flat_prior_model1499_forward.json`
+
+Visual validation:
+
+- the corrected canonical source checkpoint
+  `/home/bhuvan/tools/IsaacLab/logs/rsl_rl/go2_rma_flat/2026-04-17_14-14-36/model_1499.pt`
+  was replayed through `scripts/eval/play_flat_prior.py`
+- visual playback confirmed this is the intended trot-like flat prior
 
 ## Final Behavior Summary
 
