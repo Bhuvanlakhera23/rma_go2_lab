@@ -2,6 +2,69 @@
 
 Frozen proprioceptive quadruped locomotion baselines for rough terrain.
 
+> Warm-started and imitation-shaped blind locomotion baselines, frozen and evaluated under both canonical and OOD probes.
+
+## See It First
+
+If you only spend 30 seconds on this repo, start here:
+
+<table>
+  <tr>
+    <td align="center">
+      <a href="artifacts/evaluations/clips/baseline2/nominal_hero_20260417_173511/nominal_hero_20260417_173511.mp4">
+        <img src="docs/assets/readme/b2_nominal.gif" width="360" alt="Baseline 2 nominal locomotion preview">
+      </a>
+      <br>
+      <strong>Baseline 2 canonical nominal hero</strong>
+      <br>
+      Cleanest frozen blind controller
+    </td>
+    <td align="center">
+      <a href="artifacts/ood_evaluations/clips/baseline3/ood_stairs_down_hero_20260420_130307/ood_stairs_down_hero_20260420_130307.mp4">
+        <img src="docs/assets/readme/b3_stairs_down.gif" width="360" alt="Baseline 3 stairs-down OOD preview">
+      </a>
+      <br>
+      <strong>Baseline 3 geometry OOD</strong>
+      <br>
+      Strongest stairs-down behavior
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <a href="artifacts/ood_evaluations/clips/baseline3/ood_push_yaw_medium_hero_20260420_135550/ood_push_yaw_medium_hero_20260420_135550.mp4">
+        <img src="docs/assets/readme/b3_push_yaw.gif" width="360" alt="Baseline 3 push recovery preview">
+      </a>
+      <br>
+      <strong>Baseline 3 push recovery OOD</strong>
+      <br>
+      Best first-pass disturbance recovery
+    </td>
+    <td align="center">
+      <a href="artifacts/ood_evaluations/clips/baseline1/ood_switch_ultra_low_friction_hero_20260420_142815/ood_switch_ultra_low_friction_hero_20260420_142815.mp4">
+        <img src="docs/assets/readme/b1_switch_low_friction.gif" width="360" alt="Baseline 1 switch resilience preview">
+      </a>
+      <br>
+      <strong>Baseline 1 switch OOD</strong>
+      <br>
+      Best abrupt regime-switch resilience
+    </td>
+  </tr>
+</table>
+
+Click any preview to open the full video.
+
+## At A Glance
+
+| Axis | Winner | What that means |
+| --- | --- | --- |
+| Canonical in-distribution | **B2** | Cleanest and safest frozen blind baseline |
+| Geometry OOD | **B3** | Best on stairs-down and boxes |
+| Static dynamics OOD | **B2** | Safest under fixed hidden mismatch |
+| Push recovery OOD | **B3** | Strongest disturbance-recovery behavior |
+| Mid-episode switch OOD | **B1** | Most resilient to abrupt regime changes |
+
+## Research Question
+
 This repo asks one focused question:
 
 > How much do warm-starting and temporary imitation help a fixed blind rough-terrain controller under a frozen benchmark?
